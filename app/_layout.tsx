@@ -1,11 +1,9 @@
-import { Text, View } from "react-native";
+import { useState } from "react";
+import { Button, Text, View } from "react-native";
 import "react-native-reanimated";
 
-const Greeting = (props: { name: string }) => {
-  return <Text>Hello, {props.name}!</Text>;
-};
-
 export default function RootLayout() {
+  const [count, setCount] = useState(0);
   return (
     <View
       style={{
@@ -14,9 +12,8 @@ export default function RootLayout() {
         alignItems: "center",
       }}
     >
-      <Greeting name="John" />
-      <Greeting name="Jane" />
-      <Greeting name="Jim" />
+      <Button onPress={() => setCount(count + 1)} title="CountUp!" />
+      <Text>{count}</Text>
     </View>
   );
 }
