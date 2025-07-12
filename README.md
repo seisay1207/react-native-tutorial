@@ -1,50 +1,49 @@
-# Welcome to your Expo app 👋
+# React Native + Firebase チャットアプリ開発
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## �� 学習方法ガイド
 
-## Get started
+### 学習最大化フロー
 
-1. Install dependencies
+- [学習最大化フロー](./docs/学習最大化フロー.md)
+- [技術調査方法](./docs/技術調査方法.md)
+- [問題解決の優先順位](./docs/問題解決の優先順位.md)
+- [学習記録テンプレート](./docs/学習記録テンプレート.md)
 
-   ```bash
-   npm install
-   ```
+## 開発ガイド
 
-2. Start the app
+- [環境構築](./docs/環境構築.md)
+- [Firebase 設定](./docs/Firebase設定.md)
+- [認証機能](./docs/認証機能.md)
+- [チャット機能](./docs/チャット機能.md)
 
-   ```bash
-   npx expo start
-   ```
+## 📝 学習記録
 
-In the output, you'll find options to open the app in a
+- [Day 1: Firebase 設定](./docs/Day-1-Firebase設定.md)
+- [Day 2: 認証画面 UI](./docs/Day-2-認証画面UI.md)
+- [Day 3: 認証機能実装](./docs/Day-3-認証機能実装.md)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 🎯 学習目標
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- React Native の基本概念を理解
+- Firebase の活用方法を習得
+- 実践的なアプリ開発スキルを身につける
 
-## Get a fresh project
+## 開発環境
 
-When you're ready, run:
+### 必要なツール
+
+- Node.js
+- Expo CLI
+- Firebase Console
+
+### セットアップ
 
 ```bash
-npm run reset-project
+# 依存関係のインストール
+npm install
+
+# アプリの起動
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## プロジェクト構成
