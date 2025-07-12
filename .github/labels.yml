@@ -1,4 +1,5 @@
 # .github/labels.yml
+# タイプラベル
 - name: task
   color: 0366d6
   description: 開発タスク
@@ -15,6 +16,49 @@
   color: ffb800
   description: 学習関連
 
+# フェーズラベル
+- name: phase:setup
+  color: 0366d6
+  description: 環境構築フェーズ
+
+- name: phase:auth
+  color: 28a745
+  description: 認証機能フェーズ
+
+- name: phase:user
+  color: ffb800
+  description: ユーザー管理フェーズ
+
+- name: phase:chat
+  color: d73a4a
+  description: チャット機能フェーズ
+
+- name: phase:notification
+  color: 6f42c1
+  description: 通知機能フェーズ
+
+# 優先度ラベル
+- name: priority:high
+  color: d73a4a
+  description: 高優先度
+
+- name: priority:medium
+  color: ffb800
+  description: 中優先度
+
+- name: priority:low
+  color: 28a745
+  description: 低優先度
+
+# 機能ラベル
 - name: chat
   color: 0366d6
   description: チャット機能関連
+
+- name: firebase
+  color: ff6b35
+  description: Firebase関連
+
+- name: ui
+  color: 0366d6
+  description: UI関連
