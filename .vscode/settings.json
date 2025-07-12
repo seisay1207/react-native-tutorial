@@ -3,5 +3,13 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",
     "source.sortMembers": "explicit"
-  }
+  },
+  "scm.diffDecorations": "all",
+  "scm.countBadge": "all",
+  "git.decorations.enabled": true,
+  "git.decorations.colors": true,
+  "git.decorations.badges": true,
+  "git.decorations.enableUncommittedChanges": true,
+  "git.decorations.enableStagedChanges": true,
+  "git.decorations.enableUntrackedChanges": true
 }

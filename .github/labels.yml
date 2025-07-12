@@ -1,0 +1,20 @@
+# .github/labels.yml
+- name: task
+  color: 0366d6
+  description: 開発タスク
+
+- name: bug
+  color: d73a4a
+  description: バグ報告
+
+- name: enhancement
+  color: 28a745
+  description: 機能要望
+
+- name: learning
+  color: ffb800
+  description: 学習関連
+
+- name: chat
+  color: 0366d6
+  description: チャット機能関連
