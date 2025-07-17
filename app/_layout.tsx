@@ -1,32 +1,15 @@
+import { auth } from "@/app/firebase/config";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { useState } from "react";
-import { Button, Text, View } from "react-native";
+import { Button, Text, TextInput, View } from "react-native";
 import "react-native-reanimated";
 
 export default function RootLayout() {
-  const [count, setCount] = useState<number>(0);
-  const [history, setHistory] = useState<string[]>([]);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const setHistoryWithLimit = (value: string) => {
-    const newHistory = [...history, value];
-    if (newHistory.length > 5) {
-      newHistory.shift();
-    }
-    setHistory(newHistory);
-  };
-
-  const hancleCountUp = () => {
-    setCount(count + 1);
-    setHistoryWithLimit("CountUp!");
-  };
-
-  const handleCountDown = () => {
-    setCount(count - 1);
-    setHistoryWithLimit("CountDown!");
-  };
-
-  const handleReset = () => {
-    setCount(0);
-    setHistoryWithLimit("Reset!");
+  const handleLogin = () => {
+    signInWithEmailAndPassword(auth, email, password);
   };
 
   return (
@@ -37,11 +20,21 @@ export default function RootLayout() {
         alignItems: "center",
       }}
     >
-      <Text>{count}</Text>
-      <Button onPress={hancleCountUp} title="CountUp!" />
-      <Button onPress={handleCountDown} title="CountDown!" />
-      <Button onPress={handleReset} title="Reset!" />
-      <Text>{history.join("\n")}</Text>
+      <View style={{ flexDirection: "column", gap: 10 }}>
+        <Text>Email</Text>
+        <TextInput
+          style={{ borderWidth: 1, borderColor: "black" }}
+          value={email}
+          onChangeText={setEmail}
+        />
+        <Text>Password</Text>
+        <TextInput
+          style={{ borderWidth: 1, borderColor: "black" }}
+          value={password}
+          onChangeText={setPassword}
+        />
+      </View>
+      <Button title="Login" onPress={handleLogin} />
     </View>
   );
 }
