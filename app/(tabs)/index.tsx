@@ -1,5 +1,5 @@
-import { useAuth } from "@/app/contexts/AuthContext";
-import { signOutUser } from "@/app/firebase/auth";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { signOutUser } from "@/lib/firebase/auth";
 import React from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 

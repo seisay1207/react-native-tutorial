@@ -1,15 +1,7 @@
-import { useAuth } from "@/app/contexts/AuthContext";
-import { Redirect, Tabs } from "expo-router";
+import { Tabs } from "expo-router";
 import { Text } from "react-native";
 
 export default function TabLayout() {
-  const { user } = useAuth();
-
-  // ユーザーがログインしていない場合は認証画面にリダイレクト
-  if (!user) {
-    return <Redirect href="/auth/login" />;
-  }
-
   return (
     <Tabs
       screenOptions={{

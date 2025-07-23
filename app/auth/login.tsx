@@ -1,4 +1,4 @@
-import { signIn } from "@/app/firebase/auth";
+import { signIn } from "@/lib/firebase/auth";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -19,29 +19,59 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
+    console.log("Login attempt started");
+
     if (!email || !password) {
       Alert.alert("エラー", "メールアドレスとパスワードを入力してください");
       return;
     }
 
+    // メールアドレスの形式チェック
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("エラー", "正しいメールアドレスの形式で入力してください");
+      return;
+    }
+
+    // パスワードの長さチェック
+    if (password.length < 6) {
+      Alert.alert("エラー", "パスワードは6文字以上で入力してください");
+      return;
+    }
+
     setIsLoading(true);
+    console.log("Calling signIn function with:", { email, password: "***" });
+
     try {
       const result = await signIn(email, password);
+      console.log("SignIn result:", {
+        success: result.success,
+        error: result.error,
+      });
+
       if (result.success) {
+        console.log("Login successful, navigating to main screen");
         Alert.alert("成功", "ログインしました！");
         // メイン画面に遷移
         router.replace("/(tabs)");
       } else {
+        console.log("Login failed:", result.error);
         Alert.alert("エラー", result.error || "ログインに失敗しました");
       }
-    } catch (error) {
-      Alert.alert("エラー", "ログインに失敗しました");
+    } catch (error: any) {
+      console.error("Login error caught:", error);
+      Alert.alert(
+        "エラー",
+        `ログインに失敗しました: ${error.message || "不明なエラー"}`
+      );
     } finally {
       setIsLoading(false);
+      console.log("Login attempt finished");
     }
   };
 
   const handleSignUp = () => {
+    console.log("Navigating to signup screen");
     router.push("/auth/signup");
   };
 
@@ -67,6 +97,7 @@ export default function LoginScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                editable={!isLoading}
               />
             </View>
 
@@ -80,6 +111,7 @@ export default function LoginScreen() {
                 placeholderTextColor="#999"
                 secureTextEntry
                 autoCapitalize="none"
+                editable={!isLoading}
               />
             </View>
 
@@ -102,6 +134,7 @@ export default function LoginScreen() {
             <TouchableOpacity
               style={styles.secondaryButton}
               onPress={handleSignUp}
+              disabled={isLoading}
             >
               <Text style={styles.secondaryButtonText}>アカウントを作成</Text>
             </TouchableOpacity>

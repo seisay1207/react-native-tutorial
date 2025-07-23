@@ -1,12 +1,22 @@
-import { AuthProvider, useAuth } from "@/app/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/lib/contexts/AuthContext";
 import { Redirect, Stack } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 function AppContent() {
   const { user, isLoading } = useAuth();
 
-  console.log("AppContent: Current state", { user: user?.email, isLoading });
+  // デバッグ用のレンダリングカウンター
+  useEffect(() => {
+    console.log("AppContent: Component rendered");
+  });
+
+  console.log("AppContent: Current state", {
+    user: user?.email || null,
+    isLoading,
+    hasUser: !!user,
+    timestamp: new Date().toISOString(),
+  });
 
   if (isLoading) {
     console.log("AppContent: Showing loading screen");
@@ -20,12 +30,10 @@ function AppContent() {
 
   if (!user) {
     console.log("AppContent: No user, redirecting to login");
-    // 認証されていない場合は認証画面にリダイレクト
     return <Redirect href="/auth/login" />;
   }
 
   console.log("AppContent: User authenticated, showing main app");
-  // ユーザーがログインしている場合はメイン画面を表示
   return (
     <Stack>
       <Stack.Screen

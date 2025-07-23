@@ -1,4 +1,4 @@
-import { signUp } from "@/app/firebase/auth";
+import { signUp } from "@/lib/firebase/auth";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -20,8 +20,17 @@ export default function SignUpScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignUp = async () => {
+    console.log("SignUp attempt started");
+
     if (!email || !password || !confirmPassword) {
       Alert.alert("エラー", "すべての項目を入力してください");
+      return;
+    }
+
+    // メールアドレスの形式チェック
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("エラー", "正しいメールアドレスの形式で入力してください");
       return;
     }
 
@@ -36,23 +45,38 @@ export default function SignUpScreen() {
     }
 
     setIsLoading(true);
+    console.log("Calling signUp function with:", { email, password: "***" });
+
     try {
       const result = await signUp(email, password);
+      console.log("SignUp result:", {
+        success: result.success,
+        error: result.error,
+      });
+
       if (result.success) {
+        console.log("SignUp successful, navigating to main screen");
         Alert.alert("成功", "アカウントを作成しました！");
         // メイン画面に遷移
         router.replace("/(tabs)");
       } else {
+        console.log("SignUp failed:", result.error);
         Alert.alert("エラー", result.error || "アカウント作成に失敗しました");
       }
-    } catch (error) {
-      Alert.alert("エラー", "アカウント作成に失敗しました");
+    } catch (error: any) {
+      console.error("SignUp error caught:", error);
+      Alert.alert(
+        "エラー",
+        `アカウント作成に失敗しました: ${error.message || "不明なエラー"}`
+      );
     } finally {
       setIsLoading(false);
+      console.log("SignUp attempt finished");
     }
   };
 
   const handleBackToLogin = () => {
+    console.log("Navigating back to login screen");
     router.back();
   };
 
@@ -78,6 +102,7 @@ export default function SignUpScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                editable={!isLoading}
               />
             </View>
 
@@ -91,6 +116,7 @@ export default function SignUpScreen() {
                 placeholderTextColor="#999"
                 secureTextEntry
                 autoCapitalize="none"
+                editable={!isLoading}
               />
             </View>
 
@@ -104,6 +130,7 @@ export default function SignUpScreen() {
                 placeholderTextColor="#999"
                 secureTextEntry
                 autoCapitalize="none"
+                editable={!isLoading}
               />
             </View>
 
@@ -126,6 +153,7 @@ export default function SignUpScreen() {
             <TouchableOpacity
               style={styles.secondaryButton}
               onPress={handleBackToLogin}
+              disabled={isLoading}
             >
               <Text style={styles.secondaryButtonText}>
                 既存のアカウントでログイン
