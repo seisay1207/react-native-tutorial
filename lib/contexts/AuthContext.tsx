@@ -1,12 +1,6 @@
 import { subscribeToAuthChanges } from "@/lib/firebase/auth";
 import { User } from "firebase/auth";
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
 interface AuthContextType {
   user: User | null;
@@ -18,58 +12,22 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const renderCount = useRef(0);
-  const isInitialized = useRef(false);
-
-  // レンダリングカウンター
-  renderCount.current += 1;
-  console.log(`AuthContext: Render #${renderCount.current}`);
 
   useEffect(() => {
-    if (isInitialized.current) {
-      console.log("AuthContext: Already initialized, skipping");
-      return;
-    }
+    console.log("AuthContext: Starting Firebase auth listener");
 
-    isInitialized.current = true;
-    console.log("AuthContext: Starting initialization");
-
-    let isMounted = true;
-    let unsubscribe: (() => void) | undefined;
-
-    const initializeAuth = async () => {
-      try {
-        unsubscribe = subscribeToAuthChanges((user) => {
-          if (!isMounted) {
-            console.log("AuthContext: Component unmounted, ignoring callback");
-            return;
-          }
-
-          console.log(
-            "AuthContext: Auth state changed",
-            user ? `User logged in: ${user.email}` : "User logged out"
-          );
-
-          setUser(user);
-          setIsLoading(false);
-        });
-      } catch (error) {
-        console.error("AuthContext: Error during initialization:", error);
-        if (isMounted) {
-          setUser(null);
-          setIsLoading(false);
-        }
-      }
-    };
-
-    initializeAuth();
+    const unsubscribe = subscribeToAuthChanges((user) => {
+      console.log(
+        "AuthContext: Firebase auth state changed",
+        user ? `User: ${user.email}` : "No user"
+      );
+      setUser(user);
+      setIsLoading(false);
+    });
 
     return () => {
-      console.log("AuthContext: Cleanup");
-      isMounted = false;
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      console.log("AuthContext: Cleaning up Firebase auth listener");
+      unsubscribe();
     };
   }, []);
 
@@ -78,12 +36,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
   };
 
-  console.log("AuthContext: Rendering with state", {
+  console.log("AuthContext: State", {
     user: user?.email || null,
     isLoading,
     hasUser: !!user,
-    renderCount: renderCount.current,
-    timestamp: new Date().toISOString(),
   });
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

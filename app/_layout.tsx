@@ -1,21 +1,15 @@
 import { AuthProvider, useAuth } from "@/lib/contexts/AuthContext";
 import { Redirect, Stack } from "expo-router";
-import React, { useEffect } from "react";
+import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 function AppContent() {
   const { user, isLoading } = useAuth();
 
-  // デバッグ用のレンダリングカウンター
-  useEffect(() => {
-    console.log("AppContent: Component rendered");
-  });
-
-  console.log("AppContent: Current state", {
+  console.log("AppContent: State", {
     user: user?.email || null,
     isLoading,
     hasUser: !!user,
-    timestamp: new Date().toISOString(),
   });
 
   if (isLoading) {
@@ -53,7 +47,7 @@ function AppContent() {
 }
 
 export default function RootLayout() {
-  console.log("RootLayout: Rendering root layout");
+  console.log("RootLayout: Rendering");
   return (
     <AuthProvider>
       <AppContent />
