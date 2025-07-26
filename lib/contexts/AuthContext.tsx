@@ -1,5 +1,6 @@
+import { subscribeToAuthChanges } from "@/lib/firebase/auth";
 import { User } from "firebase/auth";
-import React, { createContext, useContext, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
 interface AuthContextType {
   user: User | null;
@@ -9,19 +10,29 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // 静的な値をメモ化して再レンダリングを防ぐ
-  const value = useMemo(
-    () => ({
-      user: null,
-      isLoading: false,
-    }),
-    []
-  );
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  console.log("AuthContext: Static state", {
-    user: null,
-    isLoading: false,
-    hasUser: false,
+  useEffect(() => {
+    console.log("AuthContext: Setting up auth listener");
+
+    const unsubscribe = subscribeToAuthChanges((user) => {
+      console.log("AuthContext: Auth state changed", { user: user?.email });
+      setUser(user);
+      setIsLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const value = {
+    user,
+    isLoading,
+  };
+
+  console.log("AuthContext: Current state", {
+    user: user?.email,
+    isLoading,
   });
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
