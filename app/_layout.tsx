@@ -6,9 +6,14 @@ import LoginScreen from "./auth/login";
 function AppContent() {
   const { user, isLoading } = useAuth();
 
-  console.log("AppContent: Auth state", { user: user?.email, isLoading });
+  console.log("AppContent: Auth state", {
+    user: user?.email,
+    isLoading,
+    hasUser: !!user,
+  });
 
   if (isLoading) {
+    console.log("AppContent: Showing loading screen");
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#007AFF" />

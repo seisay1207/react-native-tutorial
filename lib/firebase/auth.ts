@@ -84,22 +84,31 @@ export const signUp = async (
 
 // ログアウト機能
 export const signOutUser = async (): Promise<AuthResult> => {
-  console.log("Attempting to sign out");
+  console.log("signOutUser: Starting logout process");
 
   try {
     if (!auth) {
-      console.error("Firebase Auth is not initialized");
+      console.error("signOutUser: Firebase Auth is not initialized");
       return {
         success: false,
         error: "Firebase認証が初期化されていません",
       };
     }
 
+    console.log("signOutUser: Calling Firebase signOut");
     await signOut(auth);
-    console.log("Sign out successful");
+    console.log("signOutUser: Firebase signOut completed successfully");
+
+    // 現在のユーザー状態を確認
+    const currentUser = auth.currentUser;
+    console.log(
+      "signOutUser: Current user after signOut:",
+      currentUser ? currentUser.email : "null"
+    );
+
     return { success: true };
   } catch (error: any) {
-    console.error("Sign out error:", error);
+    console.error("signOutUser: Error during signOut:", error);
     return {
       success: false,
       error: "ログアウトに失敗しました",
@@ -154,6 +163,7 @@ export const subscribeToAuthChanges = (
         "subscribeToAuthChanges: Auth state changed:",
         user ? `User: ${user.email}` : "No user"
       );
+      console.log("subscribeToAuthChanges: Calling callback with user:", user);
       callback(user);
     });
 
