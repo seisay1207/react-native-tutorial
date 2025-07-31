@@ -1,6 +1,6 @@
 import { signIn } from "@/lib/firebase/auth";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -17,25 +17,32 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const clearError = () => {
+    setErrorMessage("");
+  };
 
   const handleLogin = async () => {
     console.log("Login attempt started");
+    clearError();
 
+    // 入力値の検証
     if (!email || !password) {
-      Alert.alert("エラー", "メールアドレスとパスワードを入力してください");
+      setErrorMessage("メールアドレスとパスワードを入力してください");
       return;
     }
 
     // メールアドレスの形式チェック
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert("エラー", "正しいメールアドレスの形式で入力してください");
+      setErrorMessage("正しいメールアドレスの形式で入力してください");
       return;
     }
 
     // パスワードの長さチェック
     if (password.length < 6) {
-      Alert.alert("エラー", "パスワードは6文字以上で入力してください");
+      setErrorMessage("パスワードは6文字以上で入力してください");
       return;
     }
 
@@ -51,27 +58,81 @@ export default function LoginScreen() {
 
       if (result.success) {
         console.log("Login successful, navigating to main screen");
-        Alert.alert("成功", "ログインしました！");
-        // メイン画面に遷移
-        router.replace("/(tabs)");
+        // 成功メッセージを表示
+        Alert.alert("ログイン成功", "ログインしました！", [
+          {
+            text: "OK",
+            onPress: () => {
+              // メイン画面に遷移
+              router.replace("/(tabs)");
+            },
+          },
+        ]);
       } else {
         console.log("Login failed:", result.error);
-        Alert.alert("エラー", result.error || "ログインに失敗しました");
+        // エラーメッセージを画面に表示
+        const errorMsg = result.error || "ログインに失敗しました";
+        setErrorMessage(errorMsg);
+
+        // エラーの種類に応じた追加情報を表示
+        const errorInfo = getErrorInfo(errorMsg);
+        if (errorInfo) {
+          Alert.alert("ログインエラー", errorInfo, [
+            { text: "OK", style: "default" },
+          ]);
+        }
       }
     } catch (error: any) {
       console.error("Login error caught:", error);
-      Alert.alert(
-        "エラー",
-        `ログインに失敗しました: ${error.message || "不明なエラー"}`
-      );
+      const errorMsg = `ログインに失敗しました: ${
+        error.message || "不明なエラー"
+      }`;
+      setErrorMessage(errorMsg);
+      Alert.alert("エラー", errorMsg);
     } finally {
       setIsLoading(false);
       console.log("Login attempt finished");
     }
   };
 
+  // エラーの種類に応じた詳細情報を取得
+  const getErrorInfo = (error: string): string | null => {
+    if (!error) return null;
+
+    if (error.includes("ユーザーが見つかりません")) {
+      return "このメールアドレスで登録されたアカウントが見つかりません。\n\n新規登録が必要な場合は「アカウントを作成」ボタンを押してください。";
+    }
+
+    if (error.includes("パスワードが間違っています")) {
+      return "パスワードが正しくありません。\n\nパスワードを確認して再入力してください。";
+    }
+
+    if (error.includes("メールアドレスの形式が正しくありません")) {
+      return "メールアドレスの形式が正しくありません。\n\n例: example@email.com";
+    }
+
+    if (error.includes("ネットワークエラー")) {
+      return "インターネット接続を確認してください。\n\nWi-Fiまたはモバイルデータが有効になっているか確認してください。";
+    }
+
+    if (error.includes("リクエストが多すぎます")) {
+      return "短時間に多くのログイン試行がありました。\n\nしばらく待ってから再試行してください。";
+    }
+
+    if (error.includes("このアカウントは無効化されています")) {
+      return "このアカウントは無効化されています。\n\n管理者にお問い合わせください。";
+    }
+
+    if (error.includes("Firebase認証が初期化されていません")) {
+      return "アプリの設定に問題があります。\n\nアプリを再起動してください。";
+    }
+
+    return null;
+  };
+
   const handleSignUp = () => {
     console.log("Navigating to signup screen");
+    clearError();
     router.push("/auth/signup");
   };
 
@@ -85,13 +146,23 @@ export default function LoginScreen() {
           <Text style={styles.title}>ログイン</Text>
           <Text style={styles.subtitle}>チャットアプリにようこそ</Text>
 
+          {/* エラーメッセージ表示エリア */}
+          {errorMessage ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>メールアドレス</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errorMessage && styles.inputError]}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  clearError();
+                }}
                 placeholder="example@email.com"
                 placeholderTextColor="#999"
                 keyboardType="email-address"
@@ -104,9 +175,12 @@ export default function LoginScreen() {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>パスワード</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errorMessage && styles.inputError]}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  clearError();
+                }}
                 placeholder="パスワードを入力"
                 placeholderTextColor="#999"
                 secureTextEntry
@@ -199,6 +273,22 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: "#fafafa",
+  },
+  inputError: {
+    borderColor: "#FF6B6B",
+    borderWidth: 1,
+  },
+  errorContainer: {
+    backgroundColor: "#FFEBEB",
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  errorText: {
+    color: "#FF6B6B",
+    fontSize: 14,
+    textAlign: "center",
   },
   button: {
     backgroundColor: "#007AFF",

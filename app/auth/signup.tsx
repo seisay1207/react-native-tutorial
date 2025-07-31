@@ -1,6 +1,6 @@
 import { signUp } from "@/lib/firebase/auth";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -18,29 +18,36 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const clearError = () => {
+    setErrorMessage("");
+  };
 
   const handleSignUp = async () => {
     console.log("SignUp attempt started");
+    clearError();
 
+    // 入力値の検証
     if (!email || !password || !confirmPassword) {
-      Alert.alert("エラー", "すべての項目を入力してください");
+      setErrorMessage("すべての項目を入力してください");
       return;
     }
 
     // メールアドレスの形式チェック
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert("エラー", "正しいメールアドレスの形式で入力してください");
+      setErrorMessage("正しいメールアドレスの形式で入力してください");
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("エラー", "パスワードが一致しません");
+      setErrorMessage("パスワードが一致しません");
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert("エラー", "パスワードは6文字以上で入力してください");
+      setErrorMessage("パスワードは6文字以上で入力してください");
       return;
     }
 
@@ -56,27 +63,81 @@ export default function SignUpScreen() {
 
       if (result.success) {
         console.log("SignUp successful, navigating to main screen");
-        Alert.alert("成功", "アカウントを作成しました！");
-        // メイン画面に遷移
-        router.replace("/(tabs)");
+        // 成功メッセージを表示
+        Alert.alert("アカウント作成成功", "アカウントを作成しました！", [
+          {
+            text: "OK",
+            onPress: () => {
+              // メイン画面に遷移
+              router.replace("/(tabs)");
+            },
+          },
+        ]);
       } else {
         console.log("SignUp failed:", result.error);
-        Alert.alert("エラー", result.error || "アカウント作成に失敗しました");
+        // エラーメッセージを画面に表示
+        const errorMsg = result.error || "アカウント作成に失敗しました";
+        setErrorMessage(errorMsg);
+
+        // エラーの種類に応じた追加情報を表示
+        const errorInfo = getErrorInfo(errorMsg);
+        if (errorInfo) {
+          Alert.alert("アカウント作成エラー", errorInfo, [
+            { text: "OK", style: "default" },
+          ]);
+        }
       }
     } catch (error: any) {
       console.error("SignUp error caught:", error);
-      Alert.alert(
-        "エラー",
-        `アカウント作成に失敗しました: ${error.message || "不明なエラー"}`
-      );
+      const errorMsg = `アカウント作成に失敗しました: ${
+        error.message || "不明なエラー"
+      }`;
+      setErrorMessage(errorMsg);
+      Alert.alert("エラー", errorMsg);
     } finally {
       setIsLoading(false);
       console.log("SignUp attempt finished");
     }
   };
 
+  // エラーの種類に応じた詳細情報を取得
+  const getErrorInfo = (error: string): string | null => {
+    if (!error) return null;
+
+    if (error.includes("このメールアドレスは既に使用されています")) {
+      return "このメールアドレスは既に登録されています。\n\nログイン画面でログインしてください。";
+    }
+
+    if (error.includes("パスワードが弱すぎます")) {
+      return "パスワードが弱すぎます。\n\nより強力なパスワードを設定してください。";
+    }
+
+    if (error.includes("メールアドレスの形式が正しくありません")) {
+      return "メールアドレスの形式が正しくありません。\n\n例: example@email.com";
+    }
+
+    if (error.includes("ネットワークエラー")) {
+      return "インターネット接続を確認してください。\n\nWi-Fiまたはモバイルデータが有効になっているか確認してください。";
+    }
+
+    if (error.includes("リクエストが多すぎます")) {
+      return "短時間に多くの登録試行がありました。\n\nしばらく待ってから再試行してください。";
+    }
+
+    if (error.includes("この操作は許可されていません")) {
+      return "アカウント作成が無効になっています。\n\n管理者にお問い合わせください。";
+    }
+
+    if (error.includes("Firebase認証が初期化されていません")) {
+      return "アプリの設定に問題があります。\n\nアプリを再起動してください。";
+    }
+
+    return null;
+  };
+
   const handleBackToLogin = () => {
     console.log("Navigating back to login screen");
+    clearError();
     router.back();
   };
 
@@ -90,13 +151,23 @@ export default function SignUpScreen() {
           <Text style={styles.title}>アカウント作成</Text>
           <Text style={styles.subtitle}>新しいアカウントを作成しましょう</Text>
 
+          {/* エラーメッセージ表示エリア */}
+          {errorMessage ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>メールアドレス</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errorMessage && styles.inputError]}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  clearError();
+                }}
                 placeholder="example@email.com"
                 placeholderTextColor="#999"
                 keyboardType="email-address"
@@ -109,9 +180,12 @@ export default function SignUpScreen() {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>パスワード</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errorMessage && styles.inputError]}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  clearError();
+                }}
                 placeholder="6文字以上で入力"
                 placeholderTextColor="#999"
                 secureTextEntry
@@ -123,9 +197,12 @@ export default function SignUpScreen() {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>パスワード確認</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errorMessage && styles.inputError]}
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  clearError();
+                }}
                 placeholder="パスワードを再入力"
                 placeholderTextColor="#999"
                 secureTextEntry
@@ -220,6 +297,22 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: "#fafafa",
+  },
+  inputError: {
+    borderColor: "#FF6B6B",
+    borderWidth: 2,
+  },
+  errorContainer: {
+    backgroundColor: "#FFEBEB",
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  errorText: {
+    color: "#FF6B6B",
+    fontSize: 14,
+    textAlign: "center",
   },
   button: {
     backgroundColor: "#007AFF",
