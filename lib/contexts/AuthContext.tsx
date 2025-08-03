@@ -1,47 +1,123 @@
+/**
+ * AuthContext.tsx
+ *
+ * 認証状態を管理するReact Context
+ *
+ * 【学習ポイント】
+ * 1. React Context APIを使用したグローバル状態管理
+ * 2. Firebase Authenticationとの連携
+ * 3. カスタムフック（useAuth）の作成
+ * 4. TypeScriptでの型安全な実装
+ */
+
 import { subscribeToAuthChanges } from "@/lib/firebase/auth";
 import { User } from "firebase/auth";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
+/**
+ * 認証コンテキストの型定義
+ * アプリ全体で共有される認証状態の型を定義
+ */
 interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
+  user: User | null; // 現在のユーザー（null = 未ログイン）
+  isLoading: boolean; // 認証状態の読み込み中フラグ
 }
 
+/**
+ * React Contextの作成
+ * createContextでコンテキストを作成し、初期値としてundefinedを設定
+ * これにより、Provider外でuseAuthを使用した場合にエラーを検出できる
+ */
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * AuthProvider コンポーネント
+ *
+ * 【役割】
+ * - 認証状態を管理し、子コンポーネントに提供
+ * - Firebase Authenticationの状態変化を監視
+ * - ローディング状態の管理
+ *
+ * 【Props】
+ * - children: このProviderで囲まれる子コンポーネント
+ */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // 認証状態の管理
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  /**
+   * Firebase Authenticationの状態監視
+   *
+   * 【useEffectの役割】
+   * - コンポーネントマウント時にFirebaseの認証状態リスナーを設定
+   * - アンマウント時にリスナーをクリーンアップ
+   *
+   * 【subscribeToAuthChanges】
+   * - FirebaseのonAuthStateChangedをラップした関数
+   * - ユーザーのログイン/ログアウト状態の変化を監視
+   * - 状態が変化するたびにコールバック関数が呼ばれる
+   */
   useEffect(() => {
     console.log("AuthContext: Setting up auth listener");
 
+    // Firebaseの認証状態リスナーを設定
     const unsubscribe = subscribeToAuthChanges((user) => {
       console.log("AuthContext: Auth state changed", { user: user?.email });
+
+      // 認証状態を更新
       setUser(user);
-      setIsLoading(false);
+      setIsLoading(false); // 初期読み込み完了
     });
 
+    // クリーンアップ関数を返す（コンポーネントアンマウント時に実行）
     return unsubscribe;
-  }, []);
+  }, []); // 空の依存配列 = マウント時にのみ実行
 
+  /**
+   * Contextに提供する値
+   * この値が子コンポーネントでuseAuth()で取得できる
+   */
   const value = {
     user,
     isLoading,
   };
 
+  // デバッグ用ログ
   console.log("AuthContext: Current state", {
     user: user?.email,
     isLoading,
   });
 
+  /**
+   * AuthContext.Providerで子コンポーネントを囲む
+   * valueプロパティで認証状態を提供
+   */
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/**
+ * useAuth カスタムフック
+ *
+ * 【役割】
+ * - AuthContextから認証状態を取得するためのカスタムフック
+ * - 型安全性とエラーハンドリングを提供
+ *
+ * 【使用方法】
+ * const { user, isLoading } = useAuth();
+ *
+ * 【エラーハンドリング】
+ * - Provider外で使用された場合にエラーを投げる
+ * - 開発時のミスを早期発見できる
+ */
 export function useAuth() {
+  // useContextでAuthContextから値を取得
   const context = useContext(AuthContext);
+
+  // Provider外で使用された場合のエラーハンドリング
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
+
   return context;
 }
