@@ -1,3 +1,16 @@
+/**
+ * index.tsx (ChatScreen)
+ *
+ * チャット画面のメインコンポーネント
+ *
+ * 【学習ポイント】
+ * 1. React Nativeの主要コンポーネント（FlatList, SafeAreaView, KeyboardAvoidingView）
+ * 2. Firebase Firestoreとのリアルタイム連携
+ * 3. プラットフォーム固有の処理（iOS/Android/Web）
+ * 4. 状態管理とエラーハンドリング
+ * 5. パフォーマンス最適化（useRef, useEffect）
+ */
+
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { signOutUser } from "@/lib/firebase/auth";
 import {
@@ -20,36 +33,73 @@ import {
   View,
 } from "react-native";
 
+/**
+ * ChatScreen コンポーネント
+ *
+ * 【役割】
+ * - リアルタイムチャット機能の提供
+ * - メッセージの送信・受信・表示
+ * - ユーザー認証状態の管理
+ * - プラットフォーム固有のUI処理
+ */
 export default function ChatScreen() {
+  // 認証状態の取得
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [chatId] = useState("general"); // 簡単のため固定のチャットID
+
+  // ローカル状態の管理
+  const [messages, setMessages] = useState<Message[]>([]); // メッセージリスト
+  const [newMessage, setNewMessage] = useState(""); // 入力中のメッセージ
+  const [isLoading, setIsLoading] = useState(false); // ローディング状態
+  const [chatId] = useState("general"); // チャットルームID（固定）
+
+  // FlatListの参照（スクロール制御用）
   const flatListRef = useRef<FlatList>(null);
 
-  // メッセージのリアルタイム監視
+  /**
+   * メッセージのリアルタイム監視
+   *
+   * 【useEffectの役割】
+   * - コンポーネントマウント時にFirestoreのリアルタイムリスナーを設定
+   * - ユーザーが変更された時にリスナーを再設定
+   * - アンマウント時にリスナーをクリーンアップ
+   *
+   * 【subscribeToMessages】
+   * - FirestoreのonSnapshotをラップした関数
+   * - 指定されたチャットルームのメッセージ変更をリアルタイム監視
+   * - 新しいメッセージが追加されると自動的にUIが更新される
+   */
   useEffect(() => {
-    if (!user) return;
+    if (!user) return; // ユーザーが未認証の場合は何もしない
 
     console.log("Setting up message subscription for chatId:", chatId);
+
+    // Firestoreのリアルタイムリスナーを設定
     const unsubscribe = subscribeToMessages(chatId, (newMessages) => {
       console.log("Received messages:", newMessages.length);
-      setMessages(newMessages);
+      setMessages(newMessages); // メッセージリストを更新
     });
 
+    // クリーンアップ関数を返す
     return () => {
       console.log("Cleaning up message subscription");
       unsubscribe();
     };
-  }, [chatId, user]);
+  }, [chatId, user]); // chatIdまたはuserが変更された時に再実行
 
-  // サンプルメッセージを追加
+  /**
+   * サンプルメッセージを追加する関数
+   *
+   * 【用途】
+   * - チャット機能のテスト用
+   * - 新規ユーザーへのガイド
+   * - デモンストレーション
+   */
   const addSampleMessages = async () => {
     if (!user) return;
 
     setIsLoading(true);
     try {
+      // サンプルメッセージの定義
       const sampleMessages = [
         {
           chatId,
@@ -68,6 +118,7 @@ export default function ChatScreen() {
         },
       ];
 
+      // 複数メッセージを一括送信
       await addMultipleMessages(sampleMessages);
       Alert.alert("成功", "サンプルメッセージを追加しました");
     } catch (error) {
@@ -78,21 +129,30 @@ export default function ChatScreen() {
     }
   };
 
-  // メッセージ送信
+  /**
+   * メッセージ送信処理
+   *
+   * 【処理フロー】
+   * 1. 入力値の検証
+   * 2. Firestoreにメッセージを保存
+   * 3. 入力フィールドをクリア
+   * 4. エラーハンドリング
+   */
   const handleSendMessage = async () => {
-    if (!user || !newMessage.trim()) return;
+    if (!user || !newMessage.trim()) return; // 未認証または空メッセージの場合は何もしない
 
     setIsLoading(true);
     console.log("Sending message:", newMessage);
 
     try {
+      // Firestoreにメッセージを保存
       await addMessage({
         chatId,
         text: newMessage.trim(),
         sender: user.email || "unknown",
       });
 
-      setNewMessage("");
+      setNewMessage(""); // 入力フィールドをクリア
       console.log("Message sent successfully");
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -102,10 +162,22 @@ export default function ChatScreen() {
     }
   };
 
-  // メッセージアイテムのレンダリング
+  /**
+   * メッセージアイテムのレンダリング関数
+   *
+   * 【FlatListのrenderItemプロパティで使用】
+   * - 各メッセージの表示スタイルを決定
+   * - 自分のメッセージと他の人のメッセージを区別
+   * - システムメッセージの特別な表示
+   *
+   * 【メッセージの種類】
+   * - 自分のメッセージ: 右側、青い背景
+   * - 他の人のメッセージ: 左側、グレー背景
+   * - システムメッセージ: 中央、薄いグレー背景
+   */
   const renderMessage = ({ item }: { item: Message }) => {
-    const isOwnMessage = item.sender === user?.email;
-    const isSystemMessage = item.sender === "system@example.com";
+    const isOwnMessage = item.sender === user?.email; // 自分のメッセージかどうか
+    const isSystemMessage = item.sender === "system@example.com"; // システムメッセージかどうか
 
     return (
       <View
@@ -146,6 +218,7 @@ export default function ChatScreen() {
               : ""}
           </Text>
         </View>
+        {/* 他の人のメッセージとシステムメッセージ以外に送信者名を表示 */}
         {!isOwnMessage && !isSystemMessage && (
           <Text style={styles.senderName}>{item.sender}</Text>
         )}
@@ -153,12 +226,25 @@ export default function ChatScreen() {
     );
   };
 
+  /**
+   * ログアウト処理
+   *
+   * 【プラットフォーム固有の処理】
+   * - Web: window.confirmとalertを使用
+   * - iOS/Android: Alert.alertを使用
+   *
+   * 【処理フロー】
+   * 1. 確認ダイアログを表示
+   * 2. ユーザーの確認を待つ
+   * 3. Firebaseからログアウト
+   * 4. 結果をユーザーに通知
+   */
   const handleLogout = async () => {
     console.log("ChatScreen: Logout button pressed");
 
     // プラットフォーム固有の確認ダイアログ
     if (Platform.OS === "web") {
-      // Webブラウザ用
+      // Webブラウザ用の確認ダイアログ
       console.log("ChatScreen: Using window.confirm for web");
       const confirmed = window.confirm("ログアウトしますか？");
       if (!confirmed) {
@@ -178,7 +264,7 @@ export default function ChatScreen() {
         alert("ログアウトに失敗しました");
       }
     } else {
-      // ネイティブアプリ用（iOS/Android）
+      // ネイティブアプリ用（iOS/Android）の確認ダイアログ
       console.log("ChatScreen: Using native Alert for", Platform.OS);
 
       Alert.alert("ログアウト", "ログアウトしますか？", [
@@ -212,6 +298,18 @@ export default function ChatScreen() {
     }
   };
 
+  /**
+   * コンポーネントのレンダリング
+   *
+   * 【レイアウト構造】
+   * SafeAreaView → KeyboardAvoidingView → ヘッダー + FlatList + 入力エリア
+   *
+   * 【主要コンポーネント】
+   * - SafeAreaView: ノッチやステータスバーを避ける
+   * - KeyboardAvoidingView: キーボード表示時の自動調整
+   * - FlatList: 効率的なメッセージリスト表示
+   * - TextInput: メッセージ入力フィールド
+   */
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -219,7 +317,7 @@ export default function ChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        {/* ヘッダー */}
+        {/* ヘッダー部分 */}
         <View style={styles.header}>
           <Text style={styles.title}>チャット</Text>
           <View style={styles.headerButtons}>
