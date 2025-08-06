@@ -1,3 +1,16 @@
+/**
+ * auth.ts
+ *
+ * Firebase Authentication機能の実装
+ *
+ * 【学習ポイント】
+ * 1. Firebase Authentication APIの使用方法
+ * 2. 非同期処理とエラーハンドリング
+ * 3. 型安全な実装（TypeScript）
+ * 4. デバッグログの活用
+ * 5. プラットフォーム間の互換性
+ */
+
 // app/firebase/auth.ts
 import {
   createUserWithEmailAndPassword,
@@ -9,14 +22,34 @@ import {
 } from "firebase/auth";
 import { auth } from "./config";
 
-// 型定義
+/**
+ * 認証結果の型定義
+ *
+ * 【設計思想】
+ * - 成功/失敗を明確に区別
+ * - エラーメッセージを日本語で提供
+ * - 型安全性を確保
+ */
 export interface AuthResult {
-  success: boolean;
-  user?: User;
-  error?: string;
+  success: boolean; // 認証成功/失敗フラグ
+  user?: User; // 成功時のユーザー情報
+  error?: string; // 失敗時のエラーメッセージ
 }
 
-// ログイン機能
+/**
+ * ログイン機能
+ *
+ * 【処理フロー】
+ * 1. Firebase Authの初期化チェック
+ * 2. メール/パスワード認証の実行
+ * 3. 結果の型安全な返却
+ * 4. エラーハンドリング
+ *
+ * 【エラーハンドリング】
+ * - Firebase初期化エラー
+ * - 認証エラー（ユーザー不存在、パスワード間違い等）
+ * - ネットワークエラー
+ */
 export const signIn = async (
   email: string,
   password: string
@@ -34,14 +67,17 @@ export const signIn = async (
       };
     }
 
+    // Firebase Authentication APIを使用してログイン
     const result = await signInWithEmailAndPassword(auth, email, password);
     console.log("Sign in successful:", result.user.email);
     return { success: true, user: result.user };
   } catch (error: any) {
+    // エラーの詳細ログ
     console.error("Sign in error:", error);
     console.error("Error code:", error.code);
     console.error("Error message:", error.message);
 
+    // エラーコードに基づいて日本語メッセージを返却
     return {
       success: false,
       error: getAuthErrorMessage(error.code),
@@ -49,7 +85,20 @@ export const signIn = async (
   }
 };
 
-// サインアップ機能
+/**
+ * サインアップ機能
+ *
+ * 【処理フロー】
+ * 1. Firebase Authの初期化チェック
+ * 2. 新規ユーザー作成
+ * 3. 結果の型安全な返却
+ * 4. エラーハンドリング
+ *
+ * 【注意点】
+ * - 既存メールアドレスの重複チェック
+ * - パスワード強度の検証
+ * - メールアドレス形式の検証
+ */
 export const signUp = async (
   email: string,
   password: string
@@ -67,14 +116,17 @@ export const signUp = async (
       };
     }
 
+    // Firebase Authentication APIを使用して新規ユーザー作成
     const result = await createUserWithEmailAndPassword(auth, email, password);
     console.log("Sign up successful:", result.user.email);
     return { success: true, user: result.user };
   } catch (error: any) {
+    // エラーの詳細ログ
     console.error("Sign up error:", error);
     console.error("Error code:", error.code);
     console.error("Error message:", error.message);
 
+    // エラーコードに基づいて日本語メッセージを返却
     return {
       success: false,
       error: getAuthErrorMessage(error.code),
@@ -82,7 +134,19 @@ export const signUp = async (
   }
 };
 
-// ログアウト機能
+/**
+ * ログアウト機能
+ *
+ * 【処理フロー】
+ * 1. Firebase Authの初期化チェック
+ * 2. ログアウト実行
+ * 3. 結果の型安全な返却
+ * 4. エラーハンドリング
+ *
+ * 【注意点】
+ * - ログアウト後のユーザー状態確認
+ * - クリーンアップ処理の実行
+ */
 export const signOutUser = async (): Promise<AuthResult> => {
   console.log("signOutUser: Starting logout process");
 
@@ -99,7 +163,7 @@ export const signOutUser = async (): Promise<AuthResult> => {
     await signOut(auth);
     console.log("signOutUser: Firebase signOut completed successfully");
 
-    // 現在のユーザー状態を確認
+    // 現在のユーザー状態を確認（デバッグ用）
     const currentUser = auth.currentUser;
     console.log(
       "signOutUser: Current user after signOut:",
@@ -116,7 +180,14 @@ export const signOutUser = async (): Promise<AuthResult> => {
   }
 };
 
-// 匿名認証
+/**
+ * 匿名認証機能
+ *
+ * 【用途】
+ * - ゲストユーザーの一時的な認証
+ * - デモンストレーション用
+ * - ユーザー登録前の機能体験
+ */
 export const signInAnonymouslyUser = async (): Promise<AuthResult> => {
   console.log("Attempting anonymous sign in");
 
@@ -141,7 +212,25 @@ export const signInAnonymouslyUser = async (): Promise<AuthResult> => {
   }
 };
 
-// 認証状態の監視
+/**
+ * 認証状態の監視機能
+ *
+ * 【役割】
+ * - Firebase Authenticationの状態変化を監視
+ * - ログイン/ログアウト状態の自動検知
+ * - リアルタイムな状態更新
+ *
+ * 【戻り値】
+ * - クリーンアップ関数（リスナーの解除用）
+ *
+ * 【使用方法】
+ * const unsubscribe = subscribeToAuthChanges((user) => {
+ *   // ユーザー状態が変化した時の処理
+ * });
+ *
+ * // コンポーネントアンマウント時にクリーンアップ
+ * return unsubscribe;
+ */
 export const subscribeToAuthChanges = (
   callback: (user: User | null) => void
 ) => {
@@ -153,24 +242,26 @@ export const subscribeToAuthChanges = (
       "subscribeToAuthChanges: Calling callback with null immediately"
     );
     callback(null);
-    return () => {};
+    return () => {}; // 空のクリーンアップ関数を返す
   }
 
   try {
     console.log("subscribeToAuthChanges: Creating onAuthStateChanged listener");
+
+    // Firebase Authenticationの状態変化リスナーを設定
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log(
         "subscribeToAuthChanges: Auth state changed:",
         user ? `User: ${user.email}` : "No user"
       );
       console.log("subscribeToAuthChanges: Calling callback with user:", user);
-      callback(user);
+      callback(user); // コールバック関数を呼び出し
     });
 
     console.log(
       "subscribeToAuthChanges: Auth state listener set up successfully"
     );
-    return unsubscribe;
+    return unsubscribe; // クリーンアップ関数を返す
   } catch (error) {
     console.error(
       "subscribeToAuthChanges: Error setting up auth state listener:",
@@ -180,11 +271,30 @@ export const subscribeToAuthChanges = (
       "subscribeToAuthChanges: Calling callback with null due to error"
     );
     callback(null);
-    return () => {};
+    return () => {}; // エラー時も空のクリーンアップ関数を返す
   }
 };
 
-// エラーメッセージの取得
+/**
+ * Firebase認証エラーメッセージの取得
+ *
+ * 【役割】
+ * - Firebaseのエラーコードを日本語メッセージに変換
+ * - ユーザーフレンドリーなエラー表示
+ * - デバッグ情報の提供
+ *
+ * 【エラーコード一覧】
+ * - auth/user-not-found: ユーザーが見つからない
+ * - auth/wrong-password: パスワードが間違っている
+ * - auth/invalid-email: メールアドレス形式が無効
+ * - auth/weak-password: パスワードが弱すぎる
+ * - auth/email-already-in-use: メールアドレスが既に使用されている
+ * - auth/network-request-failed: ネットワークエラー
+ * - auth/too-many-requests: リクエスト制限
+ * - auth/user-disabled: アカウントが無効化されている
+ * - auth/operation-not-allowed: 操作が許可されていない
+ * - auth/invalid-credential: 認証情報が無効
+ */
 const getAuthErrorMessage = (errorCode: string): string => {
   console.log("Getting error message for code:", errorCode);
 
