@@ -56,6 +56,47 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   /**
+   * 安全な時間フォーマット関数
+   *
+   * FirestoreのTimestamp型を安全にDate型に変換してフォーマット
+   */
+  const formatMessageTime = (timestamp: any): string => {
+    if (!timestamp) return "";
+
+    try {
+      // Timestamp型の場合はtoDate()を呼ぶ
+      if (timestamp && typeof timestamp.toDate === "function") {
+        return timestamp.toDate().toLocaleTimeString("ja-JP", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      // Date型の場合はそのまま使用
+      if (timestamp instanceof Date) {
+        return timestamp.toLocaleTimeString("ja-JP", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      // 文字列や数値の場合はDateに変換
+      const date = new Date(timestamp);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleTimeString("ja-JP", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      return "";
+    } catch (error) {
+      console.warn("Failed to format timestamp:", timestamp, error);
+      return "";
+    }
+  };
+
+  /**
    * メッセージのリアルタイム監視
    *
    * 【useEffectの役割】
@@ -210,12 +251,7 @@ export default function ChatScreen() {
               isSystemMessage && styles.systemMessageTime,
             ]}
           >
-            {item.timestamp
-              ? new Date(item.timestamp).toLocaleTimeString("ja-JP", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : ""}
+            {formatMessageTime(item.timestamp)}
           </Text>
         </View>
         {/* 他の人のメッセージとシステムメッセージ以外に送信者名を表示 */}

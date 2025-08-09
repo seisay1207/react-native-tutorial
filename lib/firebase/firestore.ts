@@ -21,6 +21,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  Timestamp,
   where,
   writeBatch,
 } from "firebase/firestore";
@@ -40,7 +41,7 @@ export interface Message {
   chatId: string; // チャットルームの識別子
   text: string; // メッセージの内容
   sender: string; // 送信者のメールアドレス
-  timestamp?: Date; // 送信時刻（サーバー側で自動生成）
+  timestamp?: Timestamp; // 送信時刻（サーバー側で自動生成）
 }
 
 /**
@@ -55,12 +56,12 @@ export interface Chat {
   id?: string; // FirestoreのドキュメントID
   participants: string[]; // 参加者のメールアドレス配列
   lastMessage?: {
-    // 最新メッセージの情報　→ チャット選択画面でサマリー表示に使用？
+    // 最新メッセージの情報
     text: string;
-    timestamp: Date;
+    timestamp: Timestamp;
     sender: string;
   };
-  createdAt?: Date; // チャットルームの作成時刻
+  createdAt?: Timestamp; // チャットルームの作成時刻
 }
 
 /**
