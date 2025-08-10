@@ -13,7 +13,11 @@ import {
   View,
 } from "react-native";
 
-export default function SignUpScreen() {
+export default function SignUpScreen({
+  onBackToLogin,
+}: {
+  onBackToLogin: () => void;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -105,11 +109,11 @@ export default function SignUpScreen() {
     if (!error) return null;
 
     if (error.includes("このメールアドレスは既に使用されています")) {
-      return "このメールアドレスは既に登録されています。\n\nログイン画面でログインしてください。";
+      return "このメールアドレスは既に使用されています。\n\n別のメールアドレスを使用するか、既存のアカウントでログインしてください。";
     }
 
     if (error.includes("パスワードが弱すぎます")) {
-      return "パスワードが弱すぎます。\n\nより強力なパスワードを設定してください。";
+      return "パスワードが弱すぎます。\n\n6文字以上で、英数字を含むパスワードを設定してください。";
     }
 
     if (error.includes("メールアドレスの形式が正しくありません")) {
@@ -121,11 +125,7 @@ export default function SignUpScreen() {
     }
 
     if (error.includes("リクエストが多すぎます")) {
-      return "短時間に多くの登録試行がありました。\n\nしばらく待ってから再試行してください。";
-    }
-
-    if (error.includes("この操作は許可されていません")) {
-      return "アカウント作成が無効になっています。\n\n管理者にお問い合わせください。";
+      return "短時間に多くのアカウント作成試行がありました。\n\nしばらく待ってから再試行してください。";
     }
 
     if (error.includes("Firebase認証が初期化されていません")) {
@@ -138,7 +138,7 @@ export default function SignUpScreen() {
   const handleBackToLogin = () => {
     console.log("Navigating back to login screen");
     clearError();
-    router.back();
+    onBackToLogin(); // router.back()の代わりにpropsを使用
   };
 
   return (

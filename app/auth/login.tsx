@@ -12,12 +12,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import SignupScreen from "./signup"; // SignupScreenをインポート
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showSignup, setShowSignup] = useState(false);
 
   const clearError = () => {
     setErrorMessage("");
@@ -131,11 +133,23 @@ export default function LoginScreen() {
   };
 
   const handleSignUp = () => {
-    console.log("Navigating to signup screen");
+    console.log("Switching to signup form");
     clearError();
-    router.push("/auth/signup");
+    setShowSignup(true);
   };
 
+  const handleBackToLogin = () => {
+    console.log("Switching back to login form");
+    clearError();
+    setShowSignup(false);
+  };
+
+  // サインアップ画面を表示
+  if (showSignup) {
+    return <SignupScreen onBackToLogin={handleBackToLogin} />;
+  }
+
+  // ログイン画面を表示
   return (
     <KeyboardAvoidingView
       style={styles.container}

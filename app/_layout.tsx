@@ -25,7 +25,7 @@ import LoginScreen from "./auth/login";
  *
  * 【認証フロー】
  * 1. isLoading = true → ローディング画面
- * 2. user = null → ログイン画面
+ * 2. user = null → ログイン画面（サインアップ画面も含む）
  * 3. user = User → チャット画面
  */
 function AppContent() {
@@ -63,6 +63,7 @@ function AppContent() {
     /**
      * 未認証ユーザーの処理
      * ユーザーがログインしていない場合はログイン画面を表示
+     * サインアップ画面への切り替えはLoginScreen内で管理
      */
     console.log("AppContent: No user, showing login screen");
     return <LoginScreen />;
