@@ -16,25 +16,35 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   Timestamp,
+  updateDoc,
   where,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "./config";
 
+// 新しいデータモデルをインポート
+import {
+  AppSettings,
+  ChatRoom,
+  FriendRequest,
+  Friendship,
+  MessageSummary,
+  NotificationSettings,
+  UserProfile,
+  UserSearchResult,
+} from "./models";
+
 /**
- * メッセージの型定義
- *
- * 【設計思想】
- * - チャットアプリに特化したデータ構造
- * - 送信者情報の管理
- * - タイムスタンプの自動生成
- * - チャットルームの識別
+ * 既存のMessage型をExtendedMessageに置き換え
+ * 後方互換性を保つため、Message型も残す
  */
 export interface Message {
   id?: string; // FirestoreのドキュメントID（自動生成）
@@ -45,12 +55,8 @@ export interface Message {
 }
 
 /**
- * チャットルームの型定義
- *
- * 【設計思想】
- * - 複数ユーザーの参加管理
- * - 最新メッセージの表示
- * - 作成時刻の記録
+ * 既存のChat型をChatRoomに置き換え
+ * 後方互換性を保つため、Chat型も残す
  */
 export interface Chat {
   id?: string; // FirestoreのドキュメントID
@@ -289,5 +295,458 @@ export const addMultipleMessages = async (
     await batch.commit();
   } catch (error) {
     throw new Error("メッセージの一括送信に失敗しました");
+  }
+};
+
+/**
+ * ユーザープロフィール管理機能
+ */
+
+/**
+ * ユーザープロフィールの作成・更新
+ */
+export const upsertUserProfile = async (
+  userId: string,
+  profile: Partial<UserProfile>
+): Promise<void> => {
+  try {
+    const userRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      // 既存プロフィールの更新
+      await updateDoc(userRef, {
+        ...profile,
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      // 新規プロフィールの作成
+      await setDoc(userRef, {
+        id: userId,
+        ...profile,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isOnline: true,
+        lastSeen: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    throw new Error("ユーザープロフィールの更新に失敗しました");
+  }
+};
+
+/**
+ * ユーザープロフィールの取得
+ */
+export const getUserProfile = async (
+  userId: string
+): Promise<UserProfile | null> => {
+  try {
+    const userRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data() as UserProfile;
+    }
+    return null;
+  } catch (error) {
+    throw new Error("ユーザープロフィールの取得に失敗しました");
+  }
+};
+
+/**
+ * ユーザーのオンライン状態を更新
+ */
+export const updateUserOnlineStatus = async (
+  userId: string,
+  isOnline: boolean
+): Promise<void> => {
+  try {
+    const userRef = doc(db, "users", userId);
+    await updateDoc(userRef, {
+      isOnline,
+      lastSeen: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    throw new Error("オンライン状態の更新に失敗しました");
+  }
+};
+
+/**
+ * 友達機能
+ */
+
+/**
+ * 友達リクエストの送信
+ */
+export const sendFriendRequest = async (
+  fromUserId: string,
+  toUserId: string,
+  message?: string
+): Promise<string> => {
+  try {
+    // 既存のリクエストをチェック
+    const existingRequest = await getExistingFriendRequest(
+      fromUserId,
+      toUserId
+    );
+    if (existingRequest) {
+      throw new Error("既に友達リクエストが存在します");
+    }
+
+    const docRef = await addDoc(collection(db, "friendRequests"), {
+      fromUser: fromUserId,
+      toUser: toUserId,
+      message,
+      status: "pending",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    return docRef.id;
+  } catch (error) {
+    throw new Error("友達リクエストの送信に失敗しました");
+  }
+};
+
+/**
+ * 既存の友達リクエストをチェック
+ */
+const getExistingFriendRequest = async (
+  fromUserId: string,
+  toUserId: string
+): Promise<FriendRequest | null> => {
+  try {
+    const q = query(
+      collection(db, "friendRequests"),
+      where("fromUser", "in", [fromUserId, toUserId]),
+      where("toUser", "in", [fromUserId, toUserId]),
+      where("status", "==", "pending")
+    );
+
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as FriendRequest;
+  } catch (error) {
+    return null;
+  }
+};
+
+/**
+ * 友達リクエストの承認
+ */
+export const acceptFriendRequest = async (requestId: string): Promise<void> => {
+  try {
+    const batch = writeBatch(db);
+
+    // リクエストの状態を更新
+    const requestRef = doc(db, "friendRequests", requestId);
+    batch.update(requestRef, {
+      status: "accepted",
+      updatedAt: serverTimestamp(),
+    });
+
+    // 友達関係を作成
+    const requestDoc = await getDoc(requestRef);
+    if (requestDoc.exists()) {
+      const requestData = requestDoc.data() as FriendRequest;
+      const friendshipRef = doc(collection(db, "friendships"));
+      batch.set(friendshipRef, {
+        user1: requestData.fromUser,
+        user2: requestData.toUser,
+        status: "accepted",
+        requestedBy: requestData.fromUser,
+        requestedAt: requestData.createdAt,
+        acceptedAt: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+  } catch (error) {
+    throw new Error("友達リクエストの承認に失敗しました");
+  }
+};
+
+/**
+ * 友達リクエストの拒否
+ */
+export const rejectFriendRequest = async (requestId: string): Promise<void> => {
+  try {
+    const requestRef = doc(db, "friendRequests", requestId);
+    await updateDoc(requestRef, {
+      status: "rejected",
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    throw new Error("友達リクエストの拒否に失敗しました");
+  }
+};
+
+/**
+ * 友達リストの取得
+ */
+export const getFriendsList = async (
+  userId: string
+): Promise<UserProfile[]> => {
+  try {
+    const q = query(
+      collection(db, "friendships"),
+      where("status", "==", "accepted"),
+      where("user1", "in", [userId])
+    );
+
+    const snapshot = await getDocs(q);
+    const friendIds = snapshot.docs.map((doc) => {
+      const data = doc.data() as Friendship;
+      return data.user1 === userId ? data.user2 : data.user1;
+    });
+
+    // 友達のプロフィールを取得
+    const friends: UserProfile[] = [];
+    for (const friendId of friendIds) {
+      const profile = await getUserProfile(friendId);
+      if (profile) {
+        friends.push(profile);
+      }
+    }
+
+    return friends;
+  } catch (error) {
+    throw new Error("友達リストの取得に失敗しました");
+  }
+};
+
+/**
+ * 拡張されたチャット機能
+ */
+
+/**
+ * 個別チャットルームの作成
+ */
+export const createDirectChat = async (
+  user1Id: string,
+  user2Id: string
+): Promise<string> => {
+  try {
+    // 既存のチャットルームをチェック
+    const existingChat = await getExistingDirectChat(user1Id, user2Id);
+    if (existingChat) {
+      return existingChat.id!;
+    }
+
+    const docRef = await addDoc(collection(db, "chatRooms"), {
+      type: "direct",
+      participants: [user1Id, user2Id],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      createdBy: user1Id,
+      isActive: true,
+    });
+
+    return docRef.id;
+  } catch (error) {
+    throw new Error("個別チャットルームの作成に失敗しました");
+  }
+};
+
+/**
+ * 既存の個別チャットルームをチェック
+ */
+const getExistingDirectChat = async (
+  user1Id: string,
+  user2Id: string
+): Promise<ChatRoom | null> => {
+  try {
+    const q = query(
+      collection(db, "chatRooms"),
+      where("type", "==", "direct"),
+      where("participants", "array-contains", user1Id)
+    );
+
+    const snapshot = await getDocs(q);
+    for (const docSnapshot of snapshot.docs) {
+      const chatData = docSnapshot.data() as ChatRoom;
+      if (chatData.participants.includes(user2Id)) {
+        return { id: docSnapshot.id, ...chatData };
+      }
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
+};
+
+/**
+ * チャットルーム一覧の取得（拡張版）
+ */
+export const getChatRooms = async (userId: string): Promise<ChatRoom[]> => {
+  try {
+    const q = query(
+      collection(db, "chatRooms"),
+      where("participants", "array-contains", userId),
+      where("isActive", "==", true),
+      orderBy("updatedAt", "desc")
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as ChatRoom[];
+  } catch (error) {
+    throw new Error("チャットルーム一覧の取得に失敗しました");
+  }
+};
+
+/**
+ * 最新メッセージのサマリーを更新
+ */
+export const updateChatRoomLastMessage = async (
+  chatId: string,
+  message: MessageSummary
+): Promise<void> => {
+  try {
+    const chatRef = doc(db, "chatRooms", chatId);
+    await updateDoc(chatRef, {
+      lastMessage: message,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    throw new Error("最新メッセージの更新に失敗しました");
+  }
+};
+
+/**
+ * ユーザー検索機能
+ */
+export const searchUsers = async (
+  searchTerm: string,
+  currentUserId: string,
+  limit: number = 10
+): Promise<UserSearchResult[]> => {
+  try {
+    // 注意: Firestoreでは部分一致検索が制限されているため、
+    // 実装は簡略化されています。本格的な検索にはAlgolia等の使用を推奨
+    const q = query(
+      collection(db, "users"),
+      where("displayName", ">=", searchTerm),
+      where("displayName", "<=", searchTerm + "\uf8ff"),
+      orderBy("displayName", "asc"), // 名前順にソート
+      limit(limit)
+    );
+
+    const snapshot = await getDocs(q);
+    const users: UserSearchResult[] = [];
+
+    for (const docSnapshot of snapshot.docs) {
+      const userData = docSnapshot.data() as UserProfile;
+      if (userData.id !== currentUserId) {
+        // 友達関係の状態を取得
+        const friendshipStatus = await getFriendshipStatus(
+          currentUserId,
+          userData.id
+        );
+
+        users.push({
+          id: userData.id,
+          displayName: userData.displayName,
+          avatar: userData.avatar,
+          email: userData.email,
+          isOnline: userData.isOnline,
+          friendshipStatus,
+        });
+      }
+    }
+
+    return users;
+  } catch (error) {
+    throw new Error("ユーザー検索に失敗しました");
+  }
+};
+
+/**
+ * 友達関係の状態を取得
+ */
+const getFriendshipStatus = async (
+  user1Id: string,
+  user2Id: string
+): Promise<"none" | "pending" | "accepted" | "rejected" | "blocked"> => {
+  try {
+    const q = query(
+      collection(db, "friendships"),
+      where("user1", "in", [user1Id, user2Id]),
+      where("user2", "in", [user1Id, user2Id])
+    );
+
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return "none";
+
+    const friendship = snapshot.docs[0].data() as Friendship;
+    return friendship.status;
+  } catch (error) {
+    return "none";
+  }
+};
+
+/**
+ * 設定管理機能
+ */
+
+/**
+ * 通知設定の取得・更新
+ */
+export const upsertNotificationSettings = async (
+  userId: string,
+  settings: Partial<NotificationSettings>
+): Promise<void> => {
+  try {
+    const settingsRef = doc(db, "notificationSettings", userId);
+    const settingsDoc = await getDoc(settingsRef);
+
+    if (settingsDoc.exists()) {
+      await updateDoc(settingsRef, {
+        ...settings,
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      await setDoc(settingsRef, {
+        userId,
+        ...settings,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    throw new Error("通知設定の更新に失敗しました");
+  }
+};
+
+/**
+ * アプリ設定の取得・更新
+ */
+export const upsertAppSettings = async (
+  userId: string,
+  settings: Partial<AppSettings>
+): Promise<void> => {
+  try {
+    const settingsRef = doc(db, "appSettings", userId);
+    const settingsDoc = await getDoc(settingsRef);
+
+    if (settingsDoc.exists()) {
+      await updateDoc(settingsRef, {
+        ...settings,
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      await setDoc(settingsRef, {
+        userId,
+        ...settings,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    throw new Error("アプリ設定の更新に失敗しました");
   }
 };

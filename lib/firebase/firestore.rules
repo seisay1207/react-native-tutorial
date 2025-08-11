@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ユーザープロフィールのルール
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // チャットルームのルール
+    match /chatRooms/{chatId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid in resource.data.participants;
+    }
+
+    // メッセージのルール
+    match /messages/{messageId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 既存のチャットコレクション（後方互換性）
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid in resource.data.participants;
+    }
+
+    // 友達リクエストのルール
+    match /friendRequests/{requestId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.fromUser || 
+         request.auth.uid == resource.data.toUser);
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.fromUser;
+      allow update: if request.auth != null && 
+        request.auth.uid == resource.data.toUser;
+    }
+
+    // 友達関係のルール
+    match /friendships/{friendshipId} {
+      allow read, write: if request.auth != null && 
+        (request.auth.uid == resource.data.user1 || 
+         request.auth.uid == resource.data.user2);
+    }
+
+    // 通知設定のルール
+    match /notificationSettings/{userId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == userId;
+    }
+
+    // アプリ設定のルール
+    match /appSettings/{userId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == userId;
+    }
+  }
+} 
