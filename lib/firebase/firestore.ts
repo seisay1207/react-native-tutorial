@@ -18,6 +18,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -570,7 +571,7 @@ const getExistingDirectChat = async (
     for (const docSnapshot of snapshot.docs) {
       const chatData = docSnapshot.data() as ChatRoom;
       if (chatData.participants.includes(user2Id)) {
-        return { id: docSnapshot.id, ...chatData };
+        return { ...chatData, id: docSnapshot.id };
       }
     }
     return null;
@@ -625,7 +626,7 @@ export const updateChatRoomLastMessage = async (
 export const searchUsers = async (
   searchTerm: string,
   currentUserId: string,
-  limit: number = 10
+  maxResults: number = 10
 ): Promise<UserSearchResult[]> => {
   try {
     // 注意: Firestoreでは部分一致検索が制限されているため、
@@ -635,7 +636,7 @@ export const searchUsers = async (
       where("displayName", ">=", searchTerm),
       where("displayName", "<=", searchTerm + "\uf8ff"),
       orderBy("displayName", "asc"), // 名前順にソート
-      limit(limit)
+      limit(maxResults)
     );
 
     const snapshot = await getDocs(q);
