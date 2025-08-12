@@ -17,13 +17,17 @@ import {
   Message,
   addMessage,
   addMultipleMessages,
+  getChatRooms,
   subscribeToMessages,
 } from "@/lib/firebase/firestore";
+import { ChatRoom } from "@/lib/firebase/models";
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   SafeAreaView,
   StyleSheet,
@@ -46,11 +50,18 @@ export default function ChatScreen() {
   // 認証状態の取得
   const { user } = useAuth();
 
+  // URLパラメータからチャットルームIDを取得
+  const params = useLocalSearchParams();
+  const initialChatId = (params.chatId as string) || "general";
+
   // ローカル状態の管理
   const [messages, setMessages] = useState<Message[]>([]); // メッセージリスト
   const [newMessage, setNewMessage] = useState(""); // 入力中のメッセージ
   const [isLoading, setIsLoading] = useState(false); // ローディング状態
-  const [chatId] = useState("general"); // チャットルームID（固定）
+  const [chatId, setChatId] = useState(initialChatId); // チャットルームID（動的）
+  const [chatTitle, setChatTitle] = useState("一般チャット"); // チャットルームタイトル
+  const [showChatSelector, setShowChatSelector] = useState(false); // チャットルーム選択モーダル
+  const [availableChatRooms, setAvailableChatRooms] = useState<ChatRoom[]>([]); // 利用可能なチャットルーム
 
   // FlatListの参照（スクロール制御用）
   const flatListRef = useRef<FlatList>(null);
@@ -109,6 +120,38 @@ export default function ChatScreen() {
    * - 指定されたチャットルームのメッセージ変更をリアルタイム監視
    * - 新しいメッセージが追加されると自動的にUIが更新される
    */
+  /**
+   * チャットルーム情報の取得
+   */
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchChatRoomInfo = async () => {
+      try {
+        // 利用可能なチャットルームを取得
+        const rooms = await getChatRooms(user.uid);
+        setAvailableChatRooms(rooms); // 利用可能なチャットルームを保存
+
+        const currentRoom = rooms.find((room) => room.id === chatId);
+
+        if (currentRoom) {
+          if (currentRoom.type === "group" && currentRoom.name) {
+            setChatTitle(currentRoom.name);
+          } else {
+            setChatTitle("個別チャット");
+          }
+        } else {
+          // 既存のgeneralチャットの場合
+          setChatTitle("一般チャット");
+        }
+      } catch (error) {
+        console.error("Failed to fetch chat room info:", error);
+      }
+    };
+
+    fetchChatRoomInfo();
+  }, [chatId, user]);
+
   useEffect(() => {
     if (!user) return; // ユーザーが未認証の場合は何もしない
 
@@ -355,7 +398,15 @@ export default function ChatScreen() {
       >
         {/* ヘッダー部分 */}
         <View style={styles.header}>
-          <Text style={styles.title}>チャット</Text>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>{chatTitle}</Text>
+            <TouchableOpacity
+              style={styles.changeChatButton}
+              onPress={() => setShowChatSelector(true)}
+            >
+              <Text style={styles.changeChatButtonText}>変更</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.headerButtons}>
             <TouchableOpacity
               style={styles.sampleButton}
@@ -420,6 +471,65 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* チャットルーム選択モーダル */}
+      <Modal
+        visible={showChatSelector}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowChatSelector(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>チャットルームを選択</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowChatSelector(false)}
+            >
+              <Text style={styles.closeButtonText}>閉じる</Text>
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={availableChatRooms}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.chatRoomOption,
+                  item.id === chatId && styles.selectedChatRoom,
+                ]}
+                onPress={() => {
+                  setChatId(item.id);
+                  setChatTitle(
+                    item.type === "group" && item.name
+                      ? item.name
+                      : "個別チャット"
+                  );
+                  // チャット選択後にモーダルを閉じる
+                  setShowChatSelector(false);
+                }}
+              >
+                <Text style={styles.chatRoomOptionTitle}>
+                  {item.type === "group" && item.name
+                    ? item.name
+                    : "個別チャット"}
+                </Text>
+                <Text style={styles.chatRoomOptionSubtitle}>
+                  {item.participants.length}人参加
+                </Text>
+              </TouchableOpacity>
+            )}
+            keyExtractor={(item) => item.id}
+            ListEmptyComponent={
+              <View style={styles.emptyChatRooms}>
+                <Text style={styles.emptyChatRoomsText}>
+                  利用可能なチャットルームがありません
+                </Text>
+              </View>
+            }
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -438,10 +548,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   title: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#333",
+    marginRight: 12,
+  },
+  changeChatButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#007AFF",
+    borderRadius: 16,
+  },
+  changeChatButtonText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "600",
   },
   headerButtons: {
     flexDirection: "row",
@@ -480,6 +606,70 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   subtitle: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+  },
+  // モーダル関連のスタイル
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#f8f9fa",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e1e5e9",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#1a1a1a",
+  },
+  closeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#6c757d",
+    borderRadius: 16,
+  },
+  closeButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  chatRoomOption: {
+    backgroundColor: "#fff",
+    padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e1e5e9",
+  },
+  selectedChatRoom: {
+    borderColor: "#007AFF",
+    backgroundColor: "#f0f8ff",
+  },
+  chatRoomOptionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    marginBottom: 4,
+  },
+  chatRoomOptionSubtitle: {
+    fontSize: 14,
+    color: "#666",
+  },
+  emptyChatRooms: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  emptyChatRoomsText: {
     fontSize: 16,
     color: "#666",
     textAlign: "center",

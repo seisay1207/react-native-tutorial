@@ -11,6 +11,13 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
+        name="chat-list"
+        options={{
+          title: "チャットルーム",
+          tabBarIcon: ({ color }) => <TabBarIcon name="list" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="index"
         options={{
           title: "チャット",
@@ -27,7 +34,7 @@ export default function TabLayout() {
 function TabBarIcon({ name, color }: { name: string; color: string }) {
   return (
     <Text style={{ color, fontSize: 20 }}>
-      {name === "chatbubble" ? "💬" : "📱"}
+      {name === "chatbubble" ? "💬" : name === "list" ? "📋" : "📱"}
     </Text>
   );
 }
