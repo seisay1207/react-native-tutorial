@@ -19,8 +19,6 @@ import {
   getChatRooms,
   subscribeToMessages,
 } from "@/lib/firebase/firestore";
-// 変更: サンプルメッセージ送信機能は不要となったため、
-// addMultipleMessages のインポートを削除しました。
 import { ChatRoom } from "@/lib/firebase/models";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -63,6 +61,7 @@ export default function ChatScreen() {
   const [chatTitle, setChatTitle] = useState("一般チャット"); // チャットルームタイトル
   const [showChatSelector, setShowChatSelector] = useState(false); // チャットルーム選択モーダル
   const [availableChatRooms, setAvailableChatRooms] = useState<ChatRoom[]>([]); // 利用可能なチャットルーム
+  const [isSigningOut, setIsSigningOut] = useState(false); // ログアウト処理中かどうか
 
   // FlatListの参照（スクロール制御用）
   const flatListRef = useRef<FlatList>(null);
@@ -264,78 +263,6 @@ export default function ChatScreen() {
   };
 
   /**
-   * ログアウト処理
-   *
-   * 【プラットフォーム固有の処理】
-   * - Web: window.confirmとalertを使用
-   * - iOS/Android: Alert.alertを使用
-   *
-   * 【処理フロー】
-   * 1. 確認ダイアログを表示
-   * 2. ユーザーの確認を待つ
-   * 3. Firebaseからログアウト
-   * 4. 結果をユーザーに通知
-   */
-  const handleLogout = async () => {
-    console.log("ChatScreen: Logout button pressed");
-
-    // プラットフォーム固有の確認ダイアログ
-    if (Platform.OS === "web") {
-      // Webブラウザ用の確認ダイアログ
-      console.log("ChatScreen: Using window.confirm for web");
-      const confirmed = window.confirm("ログアウトしますか？");
-      if (!confirmed) {
-        console.log("ChatScreen: Logout cancelled");
-        return;
-      }
-
-      console.log("ChatScreen: User confirmed logout (web)");
-      const result = await signOutUser();
-      console.log("ChatScreen: SignOut result:", result);
-
-      if (result.success) {
-        console.log("ChatScreen: Logout successful, user should be redirected");
-        alert("ログアウトしました");
-      } else {
-        console.log("ChatScreen: Logout failed:", result.error);
-        alert("ログアウトに失敗しました");
-      }
-    } else {
-      // ネイティブアプリ用（iOS/Android）の確認ダイアログ
-      console.log("ChatScreen: Using native Alert for", Platform.OS);
-
-      Alert.alert("ログアウト", "ログアウトしますか？", [
-        {
-          text: "キャンセル",
-          style: "cancel",
-          onPress: () => {
-            console.log("ChatScreen: Logout cancelled");
-          },
-        },
-        {
-          text: "ログアウト",
-          style: "destructive",
-          onPress: async () => {
-            console.log("ChatScreen: User confirmed logout");
-            const result = await signOutUser();
-            console.log("ChatScreen: SignOut result:", result);
-
-            if (result.success) {
-              console.log(
-                "ChatScreen: Logout successful, user should be redirected"
-              );
-              Alert.alert("成功", "ログアウトしました");
-            } else {
-              console.log("ChatScreen: Logout failed:", result.error);
-              Alert.alert("エラー", "ログアウトに失敗しました");
-            }
-          },
-        },
-      ]);
-    }
-  };
-
-  /**
    * コンポーネントのレンダリング
    *
    * 【レイアウト構造】
@@ -363,15 +290,6 @@ export default function ChatScreen() {
               onPress={() => setShowChatSelector(true)}
             >
               <Text style={styles.changeChatButtonText}>変更</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.headerButtons}>
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.logoutText}>ログアウト</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -433,12 +351,45 @@ export default function ChatScreen() {
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>チャットルームを選択</Text>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowChatSelector(false)}
-            >
-              <Text style={styles.closeButtonText}>閉じる</Text>
-            </TouchableOpacity>
+            <View style={styles.modalHeaderRight}>
+              <TouchableOpacity
+                style={[
+                  styles.logoutButton,
+                  isSigningOut && styles.logoutButtonDisabled,
+                ]}
+                onPress={() => {
+                  Alert.alert("ログアウト", "ログアウトしますか？", [
+                    { text: "キャンセル", style: "cancel" },
+                    {
+                      text: "ログアウト",
+                      style: "destructive",
+                      onPress: async () => {
+                        setIsSigningOut(true);
+                        try {
+                          const result = await signOutUser();
+                          if (result.success) {
+                            Alert.alert("成功", "ログアウトしました");
+                          } else {
+                            Alert.alert("エラー", "ログアウトに失敗しました");
+                          }
+                        } finally {
+                          setIsSigningOut(false);
+                        }
+                      },
+                    },
+                  ]);
+                }}
+                disabled={isSigningOut}
+              >
+                <Text style={styles.logoutButtonText}>ログアウト</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowChatSelector(false)}
+              >
+                <Text style={styles.closeButtonText}>閉じる</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <FlatList
@@ -520,18 +471,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-  headerButtons: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  logoutButton: {
-    padding: 8,
-  },
-  logoutText: {
-    color: "#FF3B30",
-    fontSize: 16,
-    fontWeight: "600",
-  },
   content: {
     flex: 1,
     justifyContent: "center",
@@ -564,6 +503,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e1e5e9",
   },
+  modalHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   modalTitle: {
     fontSize: 20,
     fontWeight: "bold",
@@ -577,6 +520,23 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  logoutButton: {
+    marginRight: 8,
+    backgroundColor: "#fff5f5",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#ffd6d6",
+  },
+  logoutButtonDisabled: {
+    opacity: 0.6,
+  },
+  logoutButtonText: {
+    color: "#FF3B30",
     fontSize: 14,
     fontWeight: "600",
   },

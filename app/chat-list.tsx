@@ -11,6 +11,7 @@
  */
 
 import { useAuth } from "@/lib/contexts/AuthContext";
+import { signOutUser } from "@/lib/firebase/auth";
 import { createDirectChat, getChatRooms } from "@/lib/firebase/firestore";
 import { ChatRoom } from "@/lib/firebase/models";
 import { router } from "expo-router";
@@ -42,6 +43,7 @@ export default function ChatListScreen() {
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   /**
    * チャットルーム一覧の取得
@@ -176,20 +178,53 @@ export default function ChatListScreen() {
   const renderHeader = () => (
     <View style={styles.header}>
       <Text style={styles.title}>チャットルーム</Text>
-      <TouchableOpacity
-        style={[
-          styles.createButton,
-          isCreatingChat && styles.createButtonDisabled,
-        ]}
-        onPress={createNewChat}
-        disabled={isCreatingChat}
-      >
-        {isCreatingChat ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text style={styles.createButtonText}>新規作成</Text>
-        )}
-      </TouchableOpacity>
+      <View style={styles.headerButtons}>
+        <TouchableOpacity
+          style={[
+            styles.createButton,
+            isCreatingChat && styles.createButtonDisabled,
+          ]}
+          onPress={createNewChat}
+          disabled={isCreatingChat}
+        >
+          {isCreatingChat ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.createButtonText}>新規作成</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.logoutButton,
+            isSigningOut && styles.logoutButtonDisabled,
+          ]}
+          onPress={() => {
+            Alert.alert("ログアウト", "ログアウトしますか？", [
+              { text: "キャンセル", style: "cancel" },
+              {
+                text: "ログアウト",
+                style: "destructive",
+                onPress: async () => {
+                  setIsSigningOut(true);
+                  try {
+                    const result = await signOutUser();
+                    if (result.success) {
+                      Alert.alert("成功", "ログアウトしました");
+                    } else {
+                      Alert.alert("エラー", "ログアウトに失敗しました");
+                    }
+                  } finally {
+                    setIsSigningOut(false);
+                  }
+                },
+              },
+            ]);
+          }}
+          disabled={isSigningOut}
+        >
+          <Text style={styles.logoutButtonText}>ログアウト</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -247,6 +282,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e1e5e9",
   },
+  headerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   title: {
     fontSize: 24,
     fontWeight: "bold",
@@ -265,6 +305,25 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  logoutButton: {
+    marginLeft: 8,
+    backgroundColor: "#fff5f5",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#ffd6d6",
+    minWidth: 80,
+    alignItems: "center",
+  },
+  logoutButtonDisabled: {
+    opacity: 0.6,
+  },
+  logoutButtonText: {
+    color: "#FF3B30",
     fontWeight: "600",
     fontSize: 14,
   },
