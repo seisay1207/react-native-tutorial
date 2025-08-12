@@ -73,7 +73,7 @@ export default function SignUpScreen({
             text: "OK",
             onPress: () => {
               // メイン画面に遷移
-              router.replace("/(tabs)");
+              router.replace("/chat-list");
             },
           },
         ]);

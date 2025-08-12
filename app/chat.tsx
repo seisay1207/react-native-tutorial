@@ -16,10 +16,11 @@ import { signOutUser } from "@/lib/firebase/auth";
 import {
   Message,
   addMessage,
-  addMultipleMessages,
   getChatRooms,
   subscribeToMessages,
 } from "@/lib/firebase/firestore";
+// 変更: サンプルメッセージ送信機能は不要となったため、
+// addMultipleMessages のインポートを削除しました。
 import { ChatRoom } from "@/lib/firebase/models";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -169,49 +170,6 @@ export default function ChatScreen() {
       unsubscribe();
     };
   }, [chatId, user]); // chatIdまたはuserが変更された時に再実行
-
-  /**
-   * サンプルメッセージを追加する関数
-   *
-   * 【用途】
-   * - チャット機能のテスト用
-   * - 新規ユーザーへのガイド
-   * - デモンストレーション
-   */
-  const addSampleMessages = async () => {
-    if (!user) return;
-
-    setIsLoading(true);
-    try {
-      // サンプルメッセージの定義
-      const sampleMessages = [
-        {
-          chatId,
-          text: "こんにちは！チャットアプリへようこそ！",
-          sender: "system@example.com",
-        },
-        {
-          chatId,
-          text: "このアプリでリアルタイムチャットを楽しんでください。",
-          sender: "system@example.com",
-        },
-        {
-          chatId,
-          text: "メッセージを送信してみてください！",
-          sender: "system@example.com",
-        },
-      ];
-
-      // 複数メッセージを一括送信
-      await addMultipleMessages(sampleMessages);
-      Alert.alert("成功", "サンプルメッセージを追加しました");
-    } catch (error) {
-      console.error("Failed to add sample messages:", error);
-      Alert.alert("エラー", "サンプルメッセージの追加に失敗しました");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   /**
    * メッセージ送信処理
@@ -409,13 +367,6 @@ export default function ChatScreen() {
           </View>
           <View style={styles.headerButtons}>
             <TouchableOpacity
-              style={styles.sampleButton}
-              onPress={addSampleMessages}
-              disabled={isLoading}
-            >
-              <Text style={styles.sampleButtonText}>サンプル</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={styles.logoutButton}
               onPress={handleLogout}
               activeOpacity={0.7}
@@ -572,17 +523,6 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  sampleButton: {
-    padding: 8,
-    marginRight: 10,
-    backgroundColor: "#4CAF50",
-    borderRadius: 8,
-  },
-  sampleButtonText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
   },
   logoutButton: {
     padding: 8,

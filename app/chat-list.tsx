@@ -83,7 +83,7 @@ export default function ChatListScreen() {
             onPress: () => {
               // 作成されたチャットルームIDをチャット画面に渡す
               router.replace({
-                pathname: "/(tabs)",
+                pathname: "/chat",
                 params: { chatId: chatId },
               });
             },
@@ -108,7 +108,7 @@ export default function ChatListScreen() {
   const navigateToChat = (chatId: string) => {
     // 選択したチャットルームIDをチャット画面に渡す
     router.replace({
-      pathname: "/(tabs)",
+      pathname: "/chat",
       params: { chatId: chatId },
     });
   };

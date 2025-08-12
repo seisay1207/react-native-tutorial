@@ -12,10 +12,8 @@
  */
 
 import { AuthProvider, useAuth } from "@/lib/contexts/AuthContext";
+import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
-// 【修正】各グループのレイアウトを明示的にインポート
-import TabsLayout from "./(tabs)/_layout";
-import AuthLayout from "./auth/_layout";
 
 /**
  * AppContent コンポーネント
@@ -24,12 +22,11 @@ import AuthLayout from "./auth/_layout";
  * - 認証状態に基づいて適切な画面を表示
  * - ローディング状態の処理
  * - 条件付きレンダリングの実装
- * - 【修正】明示的なレイアウト選択による保守性の向上
  *
  * 【認証フロー】
  * 1. isLoading = true → ローディング画面
  * 2. user = null → 認証画面（authフォルダのレイアウト）
- * 3. user = User → タブ画面（(tabs)フォルダのレイアウト）
+ * 3. user = User → メイン画面（チャットルーム一覧）
  */
 function AppContent() {
   // useAuthフックで認証状態を取得
@@ -57,32 +54,60 @@ function AppContent() {
 
   /**
    * 認証済みユーザーの処理
-   * 【修正】明示的にTabsLayoutを選択
-   *
-   * 【改善点】
-   * - 明示的にTabsLayoutを選択（曖昧性なし）
-   * - どのレイアウトが表示されるか明確
-   * - デバッグ時の原因特定が容易
-   * - ファイル構造変更時の影響が明確
-   * - 将来的な拡張が容易
+   * メイン画面（チャットルーム一覧）を表示
    */
   if (user) {
-    console.log("AppContent: User logged in, explicitly showing TabsLayout");
-    return <TabsLayout />;
+    console.log("AppContent: User logged in, showing main screen");
+    return (
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        <Stack.Screen
+          name="index"
+          options={{
+            title: "チャットルーム",
+          }}
+        />
+        <Stack.Screen
+          name="chat"
+          options={{
+            title: "チャット",
+            headerShown: true,
+            headerBackTitle: "戻る",
+          }}
+        />
+        <Stack.Screen
+          name="chat-list"
+          options={{
+            title: "チャットルーム",
+            headerShown: true,
+          }}
+        />
+      </Stack>
+    );
   }
 
   /**
    * 未認証ユーザーの処理
-   * 【修正】明示的にAuthLayoutを選択
-   *
-   * 【改善点】
-   * - 明示的にAuthLayoutを選択（曖昧性なし）
-   * - 認証関連の画面管理が統一される
-   * - ログイン/サインアップの切り替えが可能
-   * - 将来的な認証画面の追加が容易
+   * 認証画面を表示
    */
-  console.log("AppContent: No user, explicitly showing AuthLayout");
-  return <AuthLayout />;
+  console.log("AppContent: No user, showing auth layout");
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen
+        name="auth"
+        options={{
+          title: "認証",
+        }}
+      />
+    </Stack>
+  );
 }
 
 /**
@@ -96,10 +121,10 @@ function AppContent() {
  * 【Expo Routerの仕組み】
  * - _layout.tsxはファイルベースルーティングのレイアウトファイル
  * - このファイルがアプリのエントリーポイントとなる
- * - 【修正】明示的なレイアウト選択による保守性の向上
+ * - Stackナビゲーションによる階層的な画面遷移
  */
 export default function RootLayout() {
-  console.log("RootLayout: With explicit layout selection");
+  console.log("RootLayout: Using Stack navigation for hierarchical structure");
 
   return (
     /**

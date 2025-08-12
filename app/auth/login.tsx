@@ -66,7 +66,7 @@ export default function LoginScreen() {
             text: "OK",
             onPress: () => {
               // メイン画面に遷移
-              router.replace("/(tabs)");
+              router.replace("/chat-list");
             },
           },
         ]);

@@ -26,6 +26,27 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* 他のファイルがタブとして表示されるのを防ぐ */}
+      <Tabs.Screen
+        name="auth"
+        options={{
+          href: null, // タブバーに表示しない
+        }}
+      />
+      {/* (tabs)フォルダ自体がタブとして表示されるのを防ぐ */}
+      <Tabs.Screen
+        name="[...missing]"
+        options={{
+          href: null, // タブバーに表示しない
+        }}
+      />
+      {/* (tabs)タブの表示を明示的に防ぐ */}
+      <Tabs.Screen
+        name="(tabs)"
+        options={{
+          href: null, // タブバーに表示しない
+        }}
+      />
     </Tabs>
   );
 }
