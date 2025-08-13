@@ -12,21 +12,18 @@
  */
 
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { signOutUser } from "@/lib/firebase/auth";
 import {
   Message,
   addMessage,
   getChatRooms,
   subscribeToMessages,
 } from "@/lib/firebase/firestore";
-import { ChatRoom } from "@/lib/firebase/models";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   SafeAreaView,
   StyleSheet,
@@ -59,9 +56,6 @@ export default function ChatScreen() {
   const [isLoading, setIsLoading] = useState(false); // ローディング状態
   const [chatId, setChatId] = useState(initialChatId); // チャットルームID（動的）
   const [chatTitle, setChatTitle] = useState("一般チャット"); // チャットルームタイトル
-  const [showChatSelector, setShowChatSelector] = useState(false); // チャットルーム選択モーダル
-  const [availableChatRooms, setAvailableChatRooms] = useState<ChatRoom[]>([]); // 利用可能なチャットルーム
-  const [isSigningOut, setIsSigningOut] = useState(false); // ログアウト処理中かどうか
 
   // FlatListの参照（スクロール制御用）
   const flatListRef = useRef<FlatList>(null);
@@ -128,10 +122,7 @@ export default function ChatScreen() {
 
     const fetchChatRoomInfo = async () => {
       try {
-        // 利用可能なチャットルームを取得
         const rooms = await getChatRooms(user.uid);
-        setAvailableChatRooms(rooms); // 利用可能なチャットルームを保存
-
         const currentRoom = rooms.find((room) => room.id === chatId);
 
         if (currentRoom) {
@@ -285,12 +276,6 @@ export default function ChatScreen() {
         <View style={styles.header}>
           <View style={styles.titleContainer}>
             <Text style={styles.title}>{chatTitle}</Text>
-            <TouchableOpacity
-              style={styles.changeChatButton}
-              onPress={() => setShowChatSelector(true)}
-            >
-              <Text style={styles.changeChatButtonText}>変更</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -340,98 +325,6 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-
-      {/* チャットルーム選択モーダル */}
-      <Modal
-        visible={showChatSelector}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowChatSelector(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>チャットルームを選択</Text>
-            <View style={styles.modalHeaderRight}>
-              <TouchableOpacity
-                style={[
-                  styles.logoutButton,
-                  isSigningOut && styles.logoutButtonDisabled,
-                ]}
-                onPress={() => {
-                  Alert.alert("ログアウト", "ログアウトしますか？", [
-                    { text: "キャンセル", style: "cancel" },
-                    {
-                      text: "ログアウト",
-                      style: "destructive",
-                      onPress: async () => {
-                        setIsSigningOut(true);
-                        try {
-                          const result = await signOutUser();
-                          if (result.success) {
-                            Alert.alert("成功", "ログアウトしました");
-                          } else {
-                            Alert.alert("エラー", "ログアウトに失敗しました");
-                          }
-                        } finally {
-                          setIsSigningOut(false);
-                        }
-                      },
-                    },
-                  ]);
-                }}
-                disabled={isSigningOut}
-              >
-                <Text style={styles.logoutButtonText}>ログアウト</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowChatSelector(false)}
-              >
-                <Text style={styles.closeButtonText}>閉じる</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <FlatList
-            data={availableChatRooms}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.chatRoomOption,
-                  item.id === chatId && styles.selectedChatRoom,
-                ]}
-                onPress={() => {
-                  setChatId(item.id);
-                  setChatTitle(
-                    item.type === "group" && item.name
-                      ? item.name
-                      : "個別チャット"
-                  );
-                  // チャット選択後にモーダルを閉じる
-                  setShowChatSelector(false);
-                }}
-              >
-                <Text style={styles.chatRoomOptionTitle}>
-                  {item.type === "group" && item.name
-                    ? item.name
-                    : "個別チャット"}
-                </Text>
-                <Text style={styles.chatRoomOptionSubtitle}>
-                  {item.participants.length}人参加
-                </Text>
-              </TouchableOpacity>
-            )}
-            keyExtractor={(item) => item.id}
-            ListEmptyComponent={
-              <View style={styles.emptyChatRooms}>
-                <Text style={styles.emptyChatRoomsText}>
-                  利用可能なチャットルームがありません
-                </Text>
-              </View>
-            }
-          />
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -460,17 +353,8 @@ const styles = StyleSheet.create({
     color: "#333",
     marginRight: 12,
   },
-  changeChatButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#007AFF",
-    borderRadius: 16,
-  },
-  changeChatButtonText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "600",
-  },
+  changeChatButton: {},
+  changeChatButtonText: {},
   content: {
     flex: 1,
     justifyContent: "center",
@@ -485,91 +369,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   subtitle: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-  },
-  // モーダル関連のスタイル
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e1e5e9",
-  },
-  modalHeaderRight: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#1a1a1a",
-  },
-  closeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: "#6c757d",
-    borderRadius: 16,
-  },
-  closeButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  logoutButton: {
-    marginRight: 8,
-    backgroundColor: "#fff5f5",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#ffd6d6",
-  },
-  logoutButtonDisabled: {
-    opacity: 0.6,
-  },
-  logoutButtonText: {
-    color: "#FF3B30",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  chatRoomOption: {
-    backgroundColor: "#fff",
-    padding: 16,
-    marginHorizontal: 16,
-    marginVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e1e5e9",
-  },
-  selectedChatRoom: {
-    borderColor: "#007AFF",
-    backgroundColor: "#f0f8ff",
-  },
-  chatRoomOptionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1a1a1a",
-    marginBottom: 4,
-  },
-  chatRoomOptionSubtitle: {
-    fontSize: 14,
-    color: "#666",
-  },
-  emptyChatRooms: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 32,
-  },
-  emptyChatRoomsText: {
     fontSize: 16,
     color: "#666",
     textAlign: "center",
