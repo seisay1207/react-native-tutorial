@@ -146,6 +146,7 @@ export const signUp = async (
  * 【注意点】
  * - ログアウト後のユーザー状態確認
  * - クリーンアップ処理の実行
+ * 【修正】ログアウト後の状態更新を確実にするための改善
  */
 export const signOutUser = async (): Promise<AuthResult> => {
   console.log("signOutUser: Starting logout process");
@@ -159,16 +160,39 @@ export const signOutUser = async (): Promise<AuthResult> => {
       };
     }
 
+    // ログアウト前のユーザー状態を記録
+    const userBeforeLogout = auth.currentUser;
+    console.log("signOutUser: User before logout:", {
+      email: userBeforeLogout?.email,
+      uid: userBeforeLogout?.uid,
+    });
+
     console.log("signOutUser: Calling Firebase signOut");
     await signOut(auth);
     console.log("signOutUser: Firebase signOut completed successfully");
 
-    // 現在のユーザー状態を確認（デバッグ用）
-    const currentUser = auth.currentUser;
-    console.log(
-      "signOutUser: Current user after signOut:",
-      currentUser ? currentUser.email : "null"
-    );
+    // ログアウト後の状態確認を複数回実行（状態更新の確実性向上）
+    let currentUser = auth.currentUser;
+    console.log("signOutUser: Current user immediately after signOut:", {
+      user: currentUser ? currentUser.email : "null",
+      uid: currentUser?.uid || "null",
+    });
+
+    // 少し待ってから再度確認（非同期処理の完了を待つ）
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    currentUser = auth.currentUser;
+    console.log("signOutUser: Current user after delay:", {
+      user: currentUser ? currentUser.email : "null",
+      uid: currentUser?.uid || "null",
+    });
+
+    if (currentUser) {
+      console.warn(
+        "signOutUser: User still exists after signOut, this may indicate an issue"
+      );
+    } else {
+      console.log("signOutUser: User successfully removed from auth state");
+    }
 
     return { success: true };
   } catch (error: any) {
@@ -230,6 +254,8 @@ export const signInAnonymouslyUser = async (): Promise<AuthResult> => {
  *
  * // コンポーネントアンマウント時にクリーンアップ
  * return unsubscribe;
+ *
+ * 【修正】状態変化の検知を確実にするための改善
  */
 export const subscribeToAuthChanges = (
   callback: (user: User | null) => void
@@ -252,10 +278,19 @@ export const subscribeToAuthChanges = (
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log(
         "subscribeToAuthChanges: Auth state changed:",
-        user ? `User: ${user.email}` : "No user"
+        user ? `User: ${user.email} (UID: ${user.uid})` : "No user"
       );
-      console.log("subscribeToAuthChanges: Calling callback with user:", user);
-      callback(user); // コールバック関数を呼び出し
+      console.log("subscribeToAuthChanges: Calling callback with user:", {
+        email: user?.email,
+        uid: user?.uid,
+        timestamp: new Date().toISOString(),
+      });
+
+      // コールバック関数を呼び出し
+      callback(user);
+
+      // コールバック実行後の確認ログ
+      console.log("subscribeToAuthChanges: Callback executed successfully");
     });
 
     console.log(

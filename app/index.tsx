@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   Alert,
   FlatList,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -50,6 +51,70 @@ export default function ChatRoomList() {
     });
   };
 
+  // ログアウトボタンの処理
+  const handleLogout = async () => {
+    console.log("ChatRoomList: Logout button tapped - showing alert");
+
+    // プラットフォーム別のアラート処理
+    if (Platform.OS === "web") {
+      // Webブラウザ用：window.confirmを使用
+      const confirmed = window.confirm("ログアウトしますか？");
+      if (confirmed) {
+        await performLogout();
+      }
+    } else {
+      // ネイティブアプリ用：Alert.alertを使用
+      try {
+        Alert.alert("ログアウト", "ログアウトしますか？", [
+          { text: "キャンセル", style: "cancel" },
+          {
+            text: "ログアウト",
+            style: "destructive",
+            onPress: performLogout,
+          },
+        ]);
+        console.log("ChatRoomList: Alert.alert called successfully");
+      } catch (error) {
+        console.error("ChatRoomList: Error showing alert:", error);
+      }
+    }
+  };
+
+  // ログアウト実行処理（共通化）
+  const performLogout = async () => {
+    console.log("ChatRoomList: Starting logout process");
+    setIsSigningOut(true);
+
+    try {
+      const result = await signOutUser();
+      if (!result.success) {
+        console.error("ChatRoomList: Logout failed:", result.error);
+        // Webブラウザ用のエラー表示
+        if (Platform.OS === "web") {
+          alert("ログアウトに失敗しました");
+        } else {
+          Alert.alert("エラー", "ログアウトに失敗しました");
+        }
+      } else {
+        console.log(
+          "ChatRoomList: Logout successful, waiting for state update"
+        );
+        // ログアウト成功後、AuthContextの状態更新を待つ
+        // 状態更新はFirebaseのonAuthStateChangedで自動的に行われる
+      }
+    } catch (error) {
+      console.error("ChatRoomList: Unexpected error during logout:", error);
+      // Webブラウザ用のエラー表示
+      if (Platform.OS === "web") {
+        alert("予期しないエラーが発生しました");
+      } else {
+        Alert.alert("エラー", "予期しないエラーが発生しました");
+      }
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
   // チャットルームアイテムのレンダリング
   const renderChatRoom = ({ item }: { item: any }) => (
     <TouchableOpacity
@@ -79,27 +144,10 @@ export default function ChatRoomList() {
               styles.logoutButton,
               isSigningOut && styles.logoutButtonDisabled,
             ]}
-            onPress={() => {
-              Alert.alert("ログアウト", "ログアウトしますか？", [
-                { text: "キャンセル", style: "cancel" },
-                {
-                  text: "ログアウト",
-                  style: "destructive",
-                  onPress: async () => {
-                    setIsSigningOut(true);
-                    try {
-                      const result = await signOutUser();
-                      if (!result.success) {
-                        Alert.alert("エラー", "ログアウトに失敗しました");
-                      }
-                    } finally {
-                      setIsSigningOut(false);
-                    }
-                  },
-                },
-              ]);
-            }}
+            onPress={handleLogout}
             disabled={isSigningOut}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={styles.logoutButtonText}>ログアウト</Text>
           </TouchableOpacity>
@@ -137,12 +185,15 @@ const styles = StyleSheet.create({
     color: "white",
   },
   logoutButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: "#fff",
-    backgroundColor: "rgba(255,255,255,0.15)",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    minWidth: 80,
+    alignItems: "center",
+    justifyContent: "center",
   },
   logoutButtonDisabled: {
     opacity: 0.6,

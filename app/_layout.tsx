@@ -27,16 +27,20 @@ import { ActivityIndicator, View } from "react-native";
  * 1. isLoading = true → ローディング画面
  * 2. user = null → 認証画面（authフォルダのレイアウト）
  * 3. user = User → メイン画面（チャットルーム一覧）
+ *
+ * 【修正】ログアウト後の画面遷移を確実にするための改善
  */
 function AppContent() {
   // useAuthフックで認証状態を取得
   const { user, isLoading } = useAuth();
 
-  // デバッグ用ログ
+  // デバッグ用ログ（状態変化の詳細追跡）
   console.log("AppContent: Auth state", {
     user: user?.email,
+    userId: user?.uid,
     isLoading,
     hasUser: !!user,
+    timestamp: new Date().toISOString(),
   });
 
   /**
@@ -57,7 +61,10 @@ function AppContent() {
    * メイン画面（チャットルーム一覧）を表示
    */
   if (user) {
-    console.log("AppContent: User logged in, showing main screen");
+    console.log("AppContent: User logged in, showing main screen", {
+      email: user.email,
+      uid: user.uid,
+    });
     return (
       <Stack
         screenOptions={{
