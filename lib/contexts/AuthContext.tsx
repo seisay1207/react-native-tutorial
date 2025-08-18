@@ -106,6 +106,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [isLoading, user]);
 
   /**
+   * 初期化タイムアウト処理
+   * 【修正】Firebase初期化が遅い場合のフォールバック
+   */
+  useEffect(() => {
+    // 5秒後に強制的に初期化完了とする（フォールバック）
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        console.log("AuthContext: Initialization timeout, forcing completion");
+        setIsLoading(false);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  /**
    * Contextに提供する値
    * この値が子コンポーネントでuseAuth()で取得できる
    */

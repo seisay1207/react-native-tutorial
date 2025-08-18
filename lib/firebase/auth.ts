@@ -256,6 +256,7 @@ export const signInAnonymouslyUser = async (): Promise<AuthResult> => {
  * return unsubscribe;
  *
  * 【修正】状態変化の検知を確実にするための改善
+ * 【修正】初期化完了を確実に待ってからリスナーを設定
  */
 export const subscribeToAuthChanges = (
   callback: (user: User | null) => void
@@ -267,7 +268,18 @@ export const subscribeToAuthChanges = (
     console.log(
       "subscribeToAuthChanges: Calling callback with null immediately"
     );
-    callback(null);
+    // 初期化が完了していない場合は、少し待ってから再試行
+    setTimeout(() => {
+      if (auth) {
+        console.log("subscribeToAuthChanges: Auth now available, retrying...");
+        subscribeToAuthChanges(callback);
+      } else {
+        console.log(
+          "subscribeToAuthChanges: Auth still not available, calling callback with null"
+        );
+        callback(null);
+      }
+    }, 100);
     return () => {}; // 空のクリーンアップ関数を返す
   }
 

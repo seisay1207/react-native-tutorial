@@ -13,7 +13,8 @@
 
 import { AuthProvider, useAuth } from "@/lib/contexts/AuthContext";
 import { Stack } from "expo-router";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
+import LoginScreen from "./auth/login";
 
 /**
  * AppContent コンポーネント
@@ -25,10 +26,12 @@ import { ActivityIndicator, View } from "react-native";
  *
  * 【認証フロー】
  * 1. isLoading = true → ローディング画面
- * 2. user = null → 認証画面（authフォルダのレイアウト）
+ * 2. user = null → ログイン画面（直接表示）
  * 3. user = User → メイン画面（チャットルーム一覧）
  *
  * 【修正】ログアウト後の画面遷移を確実にするための改善
+ * 【修正】ログイン画面の表示条件を明確化
+ * 【修正】Expo Routerの複雑なルーティングを回避し、直接ログイン画面を表示
  */
 function AppContent() {
   // useAuthフックで認証状態を取得
@@ -52,6 +55,9 @@ function AppContent() {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={{ marginTop: 16, fontSize: 16, color: "#666" }}>
+          認証状態を確認中...
+        </Text>
       </View>
     );
   }
@@ -98,22 +104,15 @@ function AppContent() {
 
   /**
    * 未認証ユーザーの処理
-   * 認証画面を表示
+   * ログイン画面を直接表示（Expo Routerのルーティングを使わない）
    */
-  console.log("AppContent: No user, showing auth layout");
+  console.log("AppContent: No user, showing login screen directly");
+  console.log("AppContent: About to render LoginScreen component directly");
+
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen
-        name="auth"
-        options={{
-          title: "認証",
-        }}
-      />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <LoginScreen />
+    </View>
   );
 }
 

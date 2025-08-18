@@ -1,6 +1,6 @@
 import { signIn } from "@/lib/firebase/auth";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import SignupScreen from "./signup"; // SignupScreenをインポート
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -20,6 +19,12 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showSignup, setShowSignup] = useState(false);
+
+  // デバッグ用：ログイン画面の表示確認
+  useEffect(() => {
+    console.log("LoginScreen: Component mounted - login form displayed");
+    console.log("LoginScreen: About to render login form");
+  }, []);
 
   const clearError = () => {
     setErrorMessage("");
@@ -133,23 +138,17 @@ export default function LoginScreen() {
   };
 
   const handleSignUp = () => {
-    console.log("Switching to signup form");
-    clearError();
-    setShowSignup(true);
+    console.log("Signup functionality temporarily disabled");
+    // サインアップ機能は一時的に無効化
+    // 必要に応じて別画面に遷移
   };
 
   const handleBackToLogin = () => {
-    console.log("Switching back to login form");
-    clearError();
-    setShowSignup(false);
+    console.log("Already on login form");
+    // 既にログインフォームにいるため何もしない
   };
 
-  // サインアップ画面を表示
-  if (showSignup) {
-    return <SignupScreen onBackToLogin={handleBackToLogin} />;
-  }
-
-  // ログイン画面を表示
+  // ログイン画面を表示（サインアップ機能は一時的に無効化）
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -215,16 +214,20 @@ export default function LoginScreen() {
 
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>または</Text>
+              <Text style={styles.dividerText}>
+                サインアップ機能は一時的に無効化
+              </Text>
               <View style={styles.dividerLine} />
             </View>
 
             <TouchableOpacity
-              style={styles.secondaryButton}
+              style={[styles.secondaryButton, { opacity: 0.5 }]}
               onPress={handleSignUp}
-              disabled={isLoading}
+              disabled={true}
             >
-              <Text style={styles.secondaryButtonText}>アカウントを作成</Text>
+              <Text style={styles.secondaryButtonText}>
+                アカウントを作成（無効）
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
