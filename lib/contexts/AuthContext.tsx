@@ -8,7 +8,6 @@
  * 2. Firebase Authenticationとの連携
  * 3. カスタムフック（useAuth）の作成
  * 4. TypeScriptでの型安全な実装
- * 5. 【修正】ログアウト後の状態更新を確実にするための改善
  */
 
 import { subscribeToAuthChanges } from "@/lib/firebase/auth";
@@ -58,9 +57,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * - FirebaseのonAuthStateChangedをラップした関数
    * - ユーザーのログイン/ログアウト状態の変化を監視
    * - 状態が変化するたびにコールバック関数が呼ばれる
-   *
-   * 【修正】ログアウト後の状態更新を確実にするための改善
-   * 【修正】初期表示時の認証状態チェックを強化
    */
   useEffect(() => {
     console.log("AuthContext: Setting up auth listener");
@@ -70,19 +66,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("AuthContext: Auth state changed", {
         user: user?.email,
         userId: user?.uid,
-        timestamp: new Date().toISOString(),
       });
 
       // 認証状態を更新
       setUser(user);
       setIsLoading(false); // 初期読み込み完了
-
-      // デバッグ用：状態更新後の確認
-      console.log("AuthContext: State updated", {
-        newUser: user?.email,
-        newUserId: user?.uid,
-        isLoading: false,
-      });
     });
 
     // クリーンアップ関数を返す（コンポーネントアンマウント時に実行）
@@ -90,24 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []); // 空の依存配列 = マウント時にのみ実行
 
   /**
-   * 初期化時の状態確認
-   * 【修正】初期表示時の認証状態を確実にチェック
-   */
-  useEffect(() => {
-    // 初期化完了後の状態確認
-    if (!isLoading) {
-      console.log("AuthContext: Initialization completed", {
-        user: user?.email,
-        userId: user?.uid,
-        isLoading,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }, [isLoading, user]);
-
-  /**
    * 初期化タイムアウト処理
-   * 【修正】Firebase初期化が遅い場合のフォールバック
+   * Firebase初期化が遅い場合のフォールバック
    */
   useEffect(() => {
     // 5秒後に強制的に初期化完了とする（フォールバック）
@@ -135,7 +107,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: user?.email,
     userId: user?.uid,
     isLoading,
-    timestamp: new Date().toISOString(),
   });
 
   /**

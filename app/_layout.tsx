@@ -8,7 +8,6 @@
  * 2. 認証状態に基づく条件付きレンダリング
  * 3. コンポーネントの分離と再利用
  * 4. ローディング状態の適切な処理
- * 5. 【修正】明示的なレイアウト選択による保守性の向上
  */
 
 import { AuthProvider, useAuth } from "@/lib/contexts/AuthContext";
@@ -28,22 +27,17 @@ import LoginScreen from "./auth/login";
  * 1. isLoading = true → ローディング画面
  * 2. user = null → ログイン画面（直接表示）
  * 3. user = User → メイン画面（チャットルーム一覧）
- *
- * 【修正】ログアウト後の画面遷移を確実にするための改善
- * 【修正】ログイン画面の表示条件を明確化
- * 【修正】Expo Routerの複雑なルーティングを回避し、直接ログイン画面を表示
  */
 function AppContent() {
   // useAuthフックで認証状態を取得
   const { user, isLoading } = useAuth();
 
-  // デバッグ用ログ（状態変化の詳細追跡）
+  // デバッグ用ログ（状態変化の追跡）
   console.log("AppContent: Auth state", {
     user: user?.email,
     userId: user?.uid,
     isLoading,
     hasUser: !!user,
-    timestamp: new Date().toISOString(),
   });
 
   /**
@@ -67,10 +61,7 @@ function AppContent() {
    * メイン画面（チャットルーム一覧）を表示
    */
   if (user) {
-    console.log("AppContent: User logged in, showing main screen", {
-      email: user.email,
-      uid: user.uid,
-    });
+    console.log("AppContent: User logged in, showing main screen");
     return (
       <Stack
         screenOptions={{
@@ -104,10 +95,9 @@ function AppContent() {
 
   /**
    * 未認証ユーザーの処理
-   * ログイン画面を直接表示（Expo Routerのルーティングを使わない）
+   * ログイン画面を直接表示
    */
   console.log("AppContent: No user, showing login screen directly");
-  console.log("AppContent: About to render LoginScreen component directly");
 
   return (
     <View style={{ flex: 1 }}>
@@ -123,20 +113,9 @@ function AppContent() {
  * - アプリケーションの最上位レイアウト
  * - AuthProviderでアプリ全体を囲む
  * - 認証状態の管理を開始
- *
- * 【Expo Routerの仕組み】
- * - _layout.tsxはファイルベースルーティングのレイアウトファイル
- * - このファイルがアプリのエントリーポイントとなる
- * - Stackナビゲーションによる階層的な画面遷移
  */
 export default function RootLayout() {
-  console.log("RootLayout: Using Stack navigation for hierarchical structure");
-
   return (
-    /**
-     * AuthProviderでアプリ全体を囲む
-     * これにより、すべての子コンポーネントでuseAuth()が使用可能になる
-     */
     <AuthProvider>
       <AppContent />
     </AuthProvider>

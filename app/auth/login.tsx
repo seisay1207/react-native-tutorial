@@ -23,7 +23,6 @@ export default function LoginScreen() {
   // デバッグ用：ログイン画面の表示確認
   useEffect(() => {
     console.log("LoginScreen: Component mounted - login form displayed");
-    console.log("LoginScreen: About to render login form");
   }, []);
 
   const clearError = () => {

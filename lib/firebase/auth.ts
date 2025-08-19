@@ -146,7 +146,6 @@ export const signUp = async (
  * 【注意点】
  * - ログアウト後のユーザー状態確認
  * - クリーンアップ処理の実行
- * 【修正】ログアウト後の状態更新を確実にするための改善
  */
 export const signOutUser = async (): Promise<AuthResult> => {
   console.log("signOutUser: Starting logout process");
@@ -171,9 +170,9 @@ export const signOutUser = async (): Promise<AuthResult> => {
     await signOut(auth);
     console.log("signOutUser: Firebase signOut completed successfully");
 
-    // ログアウト後の状態確認を複数回実行（状態更新の確実性向上）
+    // ログアウト後の状態確認
     let currentUser = auth.currentUser;
-    console.log("signOutUser: Current user immediately after signOut:", {
+    console.log("signOutUser: Current user after signOut:", {
       user: currentUser ? currentUser.email : "null",
       uid: currentUser?.uid || "null",
     });
@@ -254,9 +253,6 @@ export const signInAnonymouslyUser = async (): Promise<AuthResult> => {
  *
  * // コンポーネントアンマウント時にクリーンアップ
  * return unsubscribe;
- *
- * 【修正】状態変化の検知を確実にするための改善
- * 【修正】初期化完了を確実に待ってからリスナーを設定
  */
 export const subscribeToAuthChanges = (
   callback: (user: User | null) => void
@@ -295,7 +291,6 @@ export const subscribeToAuthChanges = (
       console.log("subscribeToAuthChanges: Calling callback with user:", {
         email: user?.email,
         uid: user?.uid,
-        timestamp: new Date().toISOString(),
       });
 
       // コールバック関数を呼び出し
