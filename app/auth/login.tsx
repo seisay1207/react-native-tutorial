@@ -137,9 +137,9 @@ export default function LoginScreen() {
   };
 
   const handleSignUp = () => {
-    console.log("Signup functionality temporarily disabled");
-    // サインアップ機能は一時的に無効化
-    // 必要に応じて別画面に遷移
+    console.log("Navigating to signup screen");
+    // サインアップ画面に遷移
+    router.push("/auth/signup");
   };
 
   const handleBackToLogin = () => {
@@ -213,20 +213,16 @@ export default function LoginScreen() {
 
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>
-                サインアップ機能は一時的に無効化
-              </Text>
+              <Text style={styles.dividerText}>または</Text>
               <View style={styles.dividerLine} />
             </View>
 
             <TouchableOpacity
-              style={[styles.secondaryButton, { opacity: 0.5 }]}
+              style={styles.secondaryButton}
               onPress={handleSignUp}
-              disabled={true}
+              disabled={false}
             >
-              <Text style={styles.secondaryButtonText}>
-                アカウントを作成（無効）
-              </Text>
+              <Text style={styles.secondaryButtonText}>アカウントを作成</Text>
             </TouchableOpacity>
           </View>
         </View>
