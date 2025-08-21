@@ -1,3 +1,10 @@
+/**
+ * (auth)/index.tsx
+ *
+ * 認証フローのデフォルト画面（ログイン画面）
+ * Redirectを使わずに直接ログイン画面を表示
+ */
+
 import { signIn } from "@/lib/firebase/auth";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -13,16 +20,15 @@ import {
   View,
 } from "react-native";
 
-export default function LoginScreen() {
+export default function AuthIndex() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [showSignup, setShowSignup] = useState(false);
 
   // デバッグ用：ログイン画面の表示確認
   useEffect(() => {
-    console.log("LoginScreen: Component mounted - login form displayed");
+    console.log("AuthIndex (Login): Component mounted - login form displayed");
   }, []);
 
   const clearError = () => {
@@ -69,8 +75,8 @@ export default function LoginScreen() {
           {
             text: "OK",
             onPress: () => {
-              // メイン画面に遷移
-              router.replace("/chat-list");
+              // メイン画面に遷移（replaceで履歴を置き換え）
+              router.replace("/(tabs)");
             },
           },
         ]);
@@ -138,16 +144,11 @@ export default function LoginScreen() {
 
   const handleSignUp = () => {
     console.log("Navigating to signup screen");
-    // サインアップ画面に遷移
-    router.push("/auth/signup");
+    // サインアップ画面に遷移（pushで履歴に追加）
+    router.push("/(auth)/signup");
   };
 
-  const handleBackToLogin = () => {
-    console.log("Already on login form");
-    // 既にログインフォームにいるため何もしない
-  };
-
-  // ログイン画面を表示（サインアップ機能は一時的に無効化）
+  // ログイン画面を表示
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -231,51 +232,54 @@ export default function LoginScreen() {
   );
 }
 
+// スタイル定義
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#fff",
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: "center" as const,
   },
   content: {
     padding: 20,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    textAlign: "center",
+    fontSize: 28,
+    fontWeight: "bold" as const,
+    textAlign: "center" as const,
     marginBottom: 8,
     color: "#333",
   },
   subtitle: {
     fontSize: 16,
-    textAlign: "center",
-    marginBottom: 40,
+    textAlign: "center" as const,
+    marginBottom: 32,
     color: "#666",
   },
+  errorContainer: {
+    backgroundColor: "#ffebee",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#ffcdd2",
+  },
+  errorText: {
+    color: "#c62828",
+    fontSize: 14,
+    textAlign: "center" as const,
+  },
   form: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    gap: 20,
   },
   inputContainer: {
-    marginBottom: 20,
+    gap: 8,
   },
   label: {
     fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
+    fontWeight: "600" as const,
     color: "#333",
   },
   input: {
@@ -284,42 +288,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: "#fafafa",
+    backgroundColor: "#fff",
   },
   inputError: {
-    borderColor: "#FF6B6B",
-    borderWidth: 1,
-  },
-  errorContainer: {
-    backgroundColor: "#FFEBEB",
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 20,
-    alignItems: "center",
-  },
-  errorText: {
-    color: "#FF6B6B",
-    fontSize: 14,
-    textAlign: "center",
+    borderColor: "#f44336",
   },
   button: {
     backgroundColor: "#007AFF",
-    borderRadius: 8,
     padding: 16,
-    alignItems: "center",
-    marginTop: 10,
+    borderRadius: 8,
+    alignItems: "center" as const,
   },
   buttonDisabled: {
     backgroundColor: "#ccc",
   },
   buttonText: {
-    color: "white",
+    color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "600" as const,
   },
   divider: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     marginVertical: 20,
   },
   dividerLine: {
@@ -328,20 +318,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#ddd",
   },
   dividerText: {
-    marginHorizontal: 10,
+    marginHorizontal: 16,
     color: "#666",
     fontSize: 14,
   },
   secondaryButton: {
+    backgroundColor: "transparent",
+    padding: 16,
+    borderRadius: 8,
+    alignItems: "center" as const,
     borderWidth: 1,
     borderColor: "#007AFF",
-    borderRadius: 8,
-    padding: 16,
-    alignItems: "center",
   },
   secondaryButtonText: {
     color: "#007AFF",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "600" as const,
   },
 });

@@ -1,6 +1,17 @@
-import { signUp } from "@/lib/firebase/auth";
+/**
+ * (auth)/login.tsx
+ *
+ * ログイン画面
+ *
+ * 【学習ポイント】
+ * 1. Expo RouterのuseRouterフックの使用
+ * 2. 適切なナビゲーション制御
+ * 3. 無限ループの防止
+ */
+
+import { signIn } from "@/lib/firebase/auth";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,28 +24,28 @@ import {
   View,
 } from "react-native";
 
-export default function SignUpScreen({
-  onBackToLogin,
-}: {
-  onBackToLogin: () => void;
-}) {
+export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // デバッグ用：ログイン画面の表示確認
+  useEffect(() => {
+    console.log("LoginScreen: Component mounted - login form displayed");
+  }, []);
 
   const clearError = () => {
     setErrorMessage("");
   };
 
-  const handleSignUp = async () => {
-    console.log("SignUp attempt started");
+  const handleLogin = async () => {
+    console.log("Login attempt started");
     clearError();
 
     // 入力値の検証
-    if (!email || !password || !confirmPassword) {
-      setErrorMessage("すべての項目を入力してください");
+    if (!email || !password) {
+      setErrorMessage("メールアドレスとパスワードを入力してください");
       return;
     }
 
@@ -45,62 +56,58 @@ export default function SignUpScreen({
       return;
     }
 
-    if (password !== confirmPassword) {
-      setErrorMessage("パスワードが一致しません");
-      return;
-    }
-
+    // パスワードの長さチェック
     if (password.length < 6) {
       setErrorMessage("パスワードは6文字以上で入力してください");
       return;
     }
 
     setIsLoading(true);
-    console.log("Calling signUp function with:", { email, password: "***" });
+    console.log("Calling signIn function with:", { email, password: "***" });
 
     try {
-      const result = await signUp(email, password);
-      console.log("SignUp result:", {
+      const result = await signIn(email, password);
+      console.log("SignIn result:", {
         success: result.success,
         error: result.error,
       });
 
       if (result.success) {
-        console.log("SignUp successful, navigating to main screen");
+        console.log("Login successful, navigating to main screen");
         // 成功メッセージを表示
-        Alert.alert("アカウント作成成功", "アカウントを作成しました！", [
+        Alert.alert("ログイン成功", "ログインしました！", [
           {
             text: "OK",
             onPress: () => {
-              // メイン画面に遷移
-              router.replace("/chat-list");
+              // メイン画面に遷移（replaceで履歴を置き換え）
+              router.replace("/(tabs)");
             },
           },
         ]);
       } else {
-        console.log("SignUp failed:", result.error);
+        console.log("Login failed:", result.error);
         // エラーメッセージを画面に表示
-        const errorMsg = result.error || "アカウント作成に失敗しました";
+        const errorMsg = result.error || "ログインに失敗しました";
         setErrorMessage(errorMsg);
 
         // エラーの種類に応じた追加情報を表示
         const errorInfo = getErrorInfo(errorMsg);
         if (errorInfo) {
-          Alert.alert("アカウント作成エラー", errorInfo, [
+          Alert.alert("ログインエラー", errorInfo, [
             { text: "OK", style: "default" },
           ]);
         }
       }
     } catch (error: any) {
-      console.error("SignUp error caught:", error);
-      const errorMsg = `アカウント作成に失敗しました: ${
+      console.error("Login error caught:", error);
+      const errorMsg = `ログインに失敗しました: ${
         error.message || "不明なエラー"
       }`;
       setErrorMessage(errorMsg);
       Alert.alert("エラー", errorMsg);
     } finally {
       setIsLoading(false);
-      console.log("SignUp attempt finished");
+      console.log("Login attempt finished");
     }
   };
 
@@ -108,12 +115,12 @@ export default function SignUpScreen({
   const getErrorInfo = (error: string): string | null => {
     if (!error) return null;
 
-    if (error.includes("このメールアドレスは既に使用されています")) {
-      return "このメールアドレスは既に使用されています。\n\n別のメールアドレスを使用するか、既存のアカウントでログインしてください。";
+    if (error.includes("ユーザーが見つかりません")) {
+      return "このメールアドレスで登録されたアカウントが見つかりません。\n\n新規登録が必要な場合は「アカウントを作成」ボタンを押してください。";
     }
 
-    if (error.includes("パスワードが弱すぎます")) {
-      return "パスワードが弱すぎます。\n\n6文字以上で、英数字を含むパスワードを設定してください。";
+    if (error.includes("パスワードが間違っています")) {
+      return "パスワードが正しくありません。\n\nパスワードを確認して再入力してください。";
     }
 
     if (error.includes("メールアドレスの形式が正しくありません")) {
@@ -125,7 +132,11 @@ export default function SignUpScreen({
     }
 
     if (error.includes("リクエストが多すぎます")) {
-      return "短時間に多くのアカウント作成試行がありました。\n\nしばらく待ってから再試行してください。";
+      return "短時間に多くのログイン試行がありました。\n\nしばらく待ってから再試行してください。";
+    }
+
+    if (error.includes("このアカウントは無効化されています")) {
+      return "このアカウントは無効化されています。\n\n管理者にお問い合わせください。";
     }
 
     if (error.includes("Firebase認証が初期化されていません")) {
@@ -135,12 +146,13 @@ export default function SignUpScreen({
     return null;
   };
 
-  const handleBackToLogin = () => {
-    console.log("Navigating back to login screen");
-    clearError();
-    onBackToLogin(); // router.back()の代わりにpropsを使用
+  const handleSignUp = () => {
+    console.log("Navigating to signup screen");
+    // サインアップ画面に遷移（pushで履歴に追加）
+    router.push("/(auth)/signup");
   };
 
+  // ログイン画面を表示
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -148,8 +160,8 @@ export default function SignUpScreen({
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.content}>
-          <Text style={styles.title}>アカウント作成</Text>
-          <Text style={styles.subtitle}>新しいアカウントを作成しましょう</Text>
+          <Text style={styles.title}>ログイン</Text>
+          <Text style={styles.subtitle}>チャットアプリにようこそ</Text>
 
           {/* エラーメッセージ表示エリア */}
           {errorMessage ? (
@@ -186,24 +198,7 @@ export default function SignUpScreen({
                   setPassword(text);
                   clearError();
                 }}
-                placeholder="6文字以上で入力"
-                placeholderTextColor="#999"
-                secureTextEntry
-                autoCapitalize="none"
-                editable={!isLoading}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>パスワード確認</Text>
-              <TextInput
-                style={[styles.input, errorMessage && styles.inputError]}
-                value={confirmPassword}
-                onChangeText={(text) => {
-                  setConfirmPassword(text);
-                  clearError();
-                }}
-                placeholder="パスワードを再入力"
+                placeholder="パスワードを入力"
                 placeholderTextColor="#999"
                 secureTextEntry
                 autoCapitalize="none"
@@ -213,11 +208,11 @@ export default function SignUpScreen({
 
             <TouchableOpacity
               style={[styles.button, isLoading && styles.buttonDisabled]}
-              onPress={handleSignUp}
+              onPress={handleLogin}
               disabled={isLoading}
             >
               <Text style={styles.buttonText}>
-                {isLoading ? "作成中..." : "アカウント作成"}
+                {isLoading ? "ログイン中..." : "ログイン"}
               </Text>
             </TouchableOpacity>
 
@@ -229,12 +224,10 @@ export default function SignUpScreen({
 
             <TouchableOpacity
               style={styles.secondaryButton}
-              onPress={handleBackToLogin}
-              disabled={isLoading}
+              onPress={handleSignUp}
+              disabled={false}
             >
-              <Text style={styles.secondaryButtonText}>
-                既存のアカウントでログイン
-              </Text>
+              <Text style={styles.secondaryButtonText}>アカウントを作成</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -243,51 +236,54 @@ export default function SignUpScreen({
   );
 }
 
+// スタイル定義
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#fff",
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: "center" as const,
   },
   content: {
     padding: 20,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    textAlign: "center",
+    fontSize: 28,
+    fontWeight: "bold" as const,
+    textAlign: "center" as const,
     marginBottom: 8,
     color: "#333",
   },
   subtitle: {
     fontSize: 16,
-    textAlign: "center",
-    marginBottom: 40,
+    textAlign: "center" as const,
+    marginBottom: 32,
     color: "#666",
   },
+  errorContainer: {
+    backgroundColor: "#ffebee",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#ffcdd2",
+  },
+  errorText: {
+    color: "#c62828",
+    fontSize: 14,
+    textAlign: "center" as const,
+  },
   form: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    gap: 20,
   },
   inputContainer: {
-    marginBottom: 20,
+    gap: 8,
   },
   label: {
     fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
+    fontWeight: "600" as const,
     color: "#333",
   },
   input: {
@@ -296,42 +292,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: "#fafafa",
+    backgroundColor: "#fff",
   },
   inputError: {
-    borderColor: "#FF6B6B",
-    borderWidth: 2,
-  },
-  errorContainer: {
-    backgroundColor: "#FFEBEB",
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 20,
-    alignItems: "center",
-  },
-  errorText: {
-    color: "#FF6B6B",
-    fontSize: 14,
-    textAlign: "center",
+    borderColor: "#f44336",
   },
   button: {
     backgroundColor: "#007AFF",
-    borderRadius: 8,
     padding: 16,
-    alignItems: "center",
-    marginTop: 10,
+    borderRadius: 8,
+    alignItems: "center" as const,
   },
   buttonDisabled: {
     backgroundColor: "#ccc",
   },
   buttonText: {
-    color: "white",
+    color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "600" as const,
   },
   divider: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     marginVertical: 20,
   },
   dividerLine: {
@@ -340,20 +322,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#ddd",
   },
   dividerText: {
-    marginHorizontal: 10,
+    marginHorizontal: 16,
     color: "#666",
     fontSize: 14,
   },
   secondaryButton: {
+    backgroundColor: "transparent",
+    padding: 16,
+    borderRadius: 8,
+    alignItems: "center" as const,
     borderWidth: 1,
     borderColor: "#007AFF",
-    borderRadius: 8,
-    padding: 16,
-    alignItems: "center",
   },
   secondaryButtonText: {
     color: "#007AFF",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "600" as const,
   },
 });
