@@ -1,4 +1,16 @@
-import React from "react";
+/**
+ * Button.tsx
+ *
+ * 再利用可能なButtonコンポーネント
+ *
+ * 【学習ポイント】
+ * 1. React Nativeコンポーネントの設計
+ * 2. TypeScriptでのProps型定義
+ * 3. 条件付きスタイリング
+ * 4. カスタムフック的なコンポーネント設計
+ * 5. アクセシビリティの考慮
+ */
+
 import {
   StyleSheet,
   Text,
@@ -6,12 +18,38 @@ import {
   TouchableOpacityProps,
 } from "react-native";
 
+/**
+ * ButtonPropsの型定義
+ *
+ * 【設計思想】
+ * - TouchableOpacityPropsを継承してReact Nativeの標準プロパティを利用
+ * - バリエーションとサイズの選択肢を提供
+ * - 型安全性を確保
+ *
+ * 【プロパティ説明】
+ * - title: ボタンに表示するテキスト
+ * - variant: ボタンの種類（primary: メイン, secondary: サブ, danger: 危険）
+ * - size: ボタンのサイズ（small, medium, large）
+ */
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
   variant?: "primary" | "secondary" | "danger";
   size?: "small" | "medium" | "large";
 }
 
+/**
+ * Buttonコンポーネント
+ *
+ * 【役割】
+ * - 統一感のあるボタンデザインを提供
+ * - 複数のバリエーションとサイズをサポート
+ * - 無効状態の適切な表示
+ * - カスタムスタイルの拡張性
+ *
+ * 【使用例】
+ * <Button title="ログイン" variant="primary" size="large" onPress={handleLogin} />
+ * <Button title="キャンセル" variant="secondary" disabled={isLoading} />
+ */
 export default function Button({
   title,
   variant = "primary",
@@ -23,21 +61,21 @@ export default function Button({
   return (
     <TouchableOpacity
       style={[
-        styles.button,
-        styles[variant],
-        styles[size],
-        disabled && styles.disabled,
-        style,
+        styles.button, // 基本スタイル
+        styles[variant], // バリエーション固有のスタイル
+        styles[size], // サイズ固有のスタイル
+        disabled && styles.disabled, // 無効状態のスタイル
+        style, // カスタムスタイルの適用
       ]}
       disabled={disabled}
-      {...props}
+      {...props} // その他のTouchableOpacityプロパティを継承
     >
       <Text
         style={[
-          styles.text,
-          styles[`${variant}Text`],
-          styles[`${size}Text`],
-          disabled && styles.disabledText,
+          styles.text, // 基本テキストスタイル
+          styles[`${variant}Text`], // バリエーション固有のテキストスタイル
+          styles[`${size}Text`], // サイズ固有のテキストスタイル
+          disabled && styles.disabledText, // 無効状態のテキストスタイル
         ]}
       >
         {title}
