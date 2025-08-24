@@ -8,8 +8,16 @@ service cloud.firestore {
     }
 
     // チャットルームのルール
+    // TODO: チャットルームの取得・新規作成に失敗する
     match /chatRooms/{chatId} {
-      allow read, write: if request.auth != null && 
+      // 一覧取得のために読み取り権限を緩和
+      allow read: if request.auth != null;
+      
+      // 新規作成は認証済みユーザーなら可能
+      allow create: if request.auth != null;
+      
+      // 更新・削除は参加者のみ可能
+      allow update, delete: if request.auth != null && 
         request.auth.uid in resource.data.participants;
     }
 
@@ -54,4 +62,4 @@ service cloud.firestore {
         request.auth.uid == userId;
     }
   }
-} 
+}
