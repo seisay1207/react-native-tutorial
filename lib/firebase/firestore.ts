@@ -44,31 +44,30 @@ import {
 } from "./models";
 
 /**
- * 既存のMessage型をExtendedMessageに置き換え
- * 後方互換性を保つため、Message型も残す
+ * @deprecated このインターフェースは非推奨です。
+ * 後方互換性のために残されていますが、新しいコードでは使用しないでください。
  */
 export interface Message {
-  id?: string; // FirestoreのドキュメントID（自動生成）
-  chatId: string; // チャットルームの識別子
-  text: string; // メッセージの内容
-  sender: string; // 送信者のメールアドレス
-  timestamp?: Timestamp; // 送信時刻（サーバー側で自動生成）
+  id?: string;
+  chatId: string;
+  text: string;
+  sender: string;
+  timestamp?: Timestamp;
 }
 
 /**
- * 既存のChat型をChatRoomに置き換え
- * 後方互換性を保つため、Chat型も残す
+ * @deprecated このインターフェースは非推奨です。
+ * 後方互換性のために残されていますが、新しいコードでは使用しないでください。
  */
 export interface Chat {
-  id?: string; // FirestoreのドキュメントID
-  participants: string[]; // 参加者のメールアドレス配列
+  id?: string;
+  participants: string[];
   lastMessage?: {
-    // 最新メッセージの情報
     text: string;
     timestamp: Timestamp;
     sender: string;
   };
-  createdAt?: Timestamp; // チャットルームの作成時刻
+  createdAt?: Timestamp;
 }
 
 /**
@@ -98,7 +97,8 @@ export const addMessage = async (
       timestamp: serverTimestamp(), // サーバー側でタイムスタンプを生成
     });
     return docRef.id; // 生成されたドキュメントIDを返却
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Message send error:", error);
     throw new Error("メッセージの送信に失敗しました");
   }
 };
@@ -135,7 +135,8 @@ export const getMessages = async (chatId: string): Promise<Message[]> => {
       id: doc.id,
       ...doc.data(),
     })) as Message[];
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Message fetch error:", error);
     throw new Error("メッセージの取得に失敗しました");
   }
 };
@@ -203,52 +204,48 @@ export const subscribeToMessages = (
  * - グループチャットの作成
  * - プライベートチャットの作成
  */
+/**
+ * @deprecated このメソッドは非推奨です。代わりに createDirectChat を使用してください。
+ * この関数は後方互換性のために残されていますが、新しいコードでは使用しないでください。
+ */
 export const createChat = async (participants: string[]): Promise<string> => {
-  try {
-    // Firestoreのchatsコレクションにドキュメントを追加
-    const docRef = await addDoc(collection(db, "chats"), {
-      participants, // 参加者リスト
-      createdAt: serverTimestamp(), // サーバー側で作成時刻を生成
+  console.warn(
+    "createChat is deprecated. Please use createDirectChat instead."
+  );
+  if (participants.length === 2) {
+    return createDirectChat(participants[0], participants[1]);
+  } else {
+    // グループチャットの場合は新しい形式で作成
+    const docRef = await addDoc(collection(db, "chatRooms"), {
+      type: "group",
+      participants,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      isActive: true,
     });
-    return docRef.id; // 生成されたドキュメントIDを返却
-  } catch (error) {
-    throw new Error("チャットの作成に失敗しました");
+    return docRef.id;
   }
 };
 
 /**
- * チャットルーム取得機能
- *
- * 【処理フロー】
- * 1. 指定されたユーザーが参加しているチャットをクエリ
- * 2. 作成時刻順でソート
- * 3. 結果を配列として返却
- *
- * 【クエリ条件】
- * - participants: 指定されたユーザーが含まれるチャット
- * - orderBy: 作成時刻の降順ソート（最新のチャットが上）
- *
- * 【用途】
- * - ユーザーのチャット一覧表示
- * - チャット履歴の管理
+ * @deprecated このメソッドは非推奨です。代わりに getChatRooms を使用してください。
+ * この関数は後方互換性のために残されていますが、新しいコードでは使用しないでください。
  */
 export const getChats = async (userId: string): Promise<Chat[]> => {
+  console.warn("getChats is deprecated. Please use getChatRooms instead.");
   try {
-    // Firestoreクエリの構築
-    const q = query(
-      collection(db, "chats"),
-      where("participants", "array-contains", userId), // ユーザーが参加しているチャット
-      orderBy("createdAt", "desc") // 作成時刻の降順ソート
-    );
+    // 新しいchatRoomsから取得
+    const chatRooms = await getChatRooms(userId);
 
-    const snapshot = await getDocs(q);
-
-    // ドキュメントをChat型の配列に変換
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
+    // 古い形式に変換して返す（後方互換性のため）
+    return chatRooms.map((room) => ({
+      id: room.id,
+      participants: room.participants,
+      lastMessage: room.lastMessage,
+      createdAt: room.createdAt,
     })) as Chat[];
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Chat fetch error:", error);
     throw new Error("チャットの取得に失敗しました");
   }
 };
@@ -294,7 +291,8 @@ export const addMultipleMessages = async (
 
     // バッチの一括実行
     await batch.commit();
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Batch message send error:", error);
     throw new Error("メッセージの一括送信に失敗しました");
   }
 };
@@ -331,7 +329,8 @@ export const upsertUserProfile = async (
         lastSeen: serverTimestamp(),
       });
     }
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("User profile update error:", error);
     throw new Error("ユーザープロフィールの更新に失敗しました");
   }
 };
@@ -350,7 +349,8 @@ export const getUserProfile = async (
       return userDoc.data() as UserProfile;
     }
     return null;
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("User profile fetch error:", error);
     throw new Error("ユーザープロフィールの取得に失敗しました");
   }
 };
@@ -369,7 +369,8 @@ export const updateUserOnlineStatus = async (
       lastSeen: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Online status update error:", error);
     throw new Error("オンライン状態の更新に失敗しました");
   }
 };
@@ -406,7 +407,8 @@ export const sendFriendRequest = async (
     });
 
     return docRef.id;
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Friend request send error:", error);
     throw new Error("友達リクエストの送信に失敗しました");
   }
 };
@@ -431,7 +433,8 @@ const getExistingFriendRequest = async (
 
     const doc = snapshot.docs[0];
     return { id: doc.id, ...doc.data() } as FriendRequest;
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Operation failed:", error);
     return null;
   }
 };
@@ -466,7 +469,8 @@ export const acceptFriendRequest = async (requestId: string): Promise<void> => {
     }
 
     await batch.commit();
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Friend request accept error:", error);
     throw new Error("友達リクエストの承認に失敗しました");
   }
 };
@@ -481,7 +485,8 @@ export const rejectFriendRequest = async (requestId: string): Promise<void> => {
       status: "rejected",
       updatedAt: serverTimestamp(),
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Friend request reject error:", error);
     throw new Error("友達リクエストの拒否に失敗しました");
   }
 };
@@ -515,7 +520,8 @@ export const getFriendsList = async (
     }
 
     return friends;
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Friends list fetch error:", error);
     throw new Error("友達リストの取得に失敗しました");
   }
 };
@@ -548,7 +554,8 @@ export const createDirectChat = async (
     });
 
     return docRef.id;
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Direct chat room creation error:", error);
     throw new Error("個別チャットルームの作成に失敗しました");
   }
 };
@@ -575,7 +582,8 @@ const getExistingDirectChat = async (
       }
     }
     return null;
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Operation failed:", error);
     return null;
   }
 };
@@ -585,20 +593,49 @@ const getExistingDirectChat = async (
  */
 export const getChatRooms = async (userId: string): Promise<ChatRoom[]> => {
   try {
+    // まずインデックスが必要ないクエリを試行
     const q = query(
       collection(db, "chatRooms"),
       where("participants", "array-contains", userId),
-      where("isActive", "==", true),
       orderBy("updatedAt", "desc")
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as ChatRoom[];
-  } catch (error) {
-    throw new Error("チャットルーム一覧の取得に失敗しました");
+
+    // 結果をフィルタリング
+    const chatRooms = snapshot.docs
+      .map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+          } as ChatRoom)
+      )
+      .filter((room) => room.isActive !== false); // undefinedの場合もアクティブとみなす
+
+    return chatRooms;
+  } catch (error: any) {
+    console.error("Firestore error details:", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    });
+
+    if (error.code === "permission-denied") {
+      throw new Error("チャットルームへのアクセス権限がありません");
+    }
+
+    if (
+      error.code === "failed-precondition" ||
+      error.message?.includes("index")
+    ) {
+      throw new Error(
+        "インデックスの設定が必要です。Firebase Consoleを確認してください"
+      );
+    }
+
+    // 元のエラーメッセージを保持
+    throw new Error(`チャットルーム一覧の取得に失敗しました: ${error.message}`);
   }
 };
 
@@ -615,7 +652,8 @@ export const updateChatRoomLastMessage = async (
       lastMessage: message,
       updatedAt: serverTimestamp(),
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Last message update error:", error);
     throw new Error("最新メッセージの更新に失敗しました");
   }
 };
@@ -663,7 +701,8 @@ export const searchUsers = async (
     }
 
     return users;
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("User search error:", error);
     throw new Error("ユーザー検索に失敗しました");
   }
 };
@@ -687,7 +726,8 @@ const getFriendshipStatus = async (
 
     const friendship = snapshot.docs[0].data() as Friendship;
     return friendship.status;
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Friendship status check error:", error);
     return "none";
   }
 };
@@ -719,7 +759,8 @@ export const upsertNotificationSettings = async (
         updatedAt: serverTimestamp(),
       });
     }
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("Notification settings update error:", error);
     throw new Error("通知設定の更新に失敗しました");
   }
 };
@@ -747,7 +788,120 @@ export const upsertAppSettings = async (
         updatedAt: serverTimestamp(),
       });
     }
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error("App settings update error:", error);
     throw new Error("アプリ設定の更新に失敗しました");
+  }
+};
+
+/**
+ * データ移行: chatsコレクションからchatRoomsコレクションへの移行
+ *
+ * 【処理フロー】
+ * 1. 古いchatsコレクションからすべてのチャットを取得
+ * 2. 各チャットを新しい形式に変換
+ * 3. chatRoomsコレクションに移行
+ * 4. 移行完了後に古いチャットを非アクティブとしてマーク
+ *
+ * 【注意点】
+ * - データの整合性を保つため、バッチ処理を使用
+ * - エラー発生時はロールバック
+ * - 既存のchatRoomsとの重複を防ぐ
+ */
+export const migrateChatsToChatRooms = async (): Promise<void> => {
+  try {
+    const oldChatsQuery = query(collection(db, "chats"));
+    const oldChatsSnapshot = await getDocs(oldChatsQuery);
+
+    // 一度に処理できるドキュメント数の制限（500）に注意
+    const batchSize = 400;
+    let currentBatch = writeBatch(db);
+    let operationCount = 0;
+
+    for (const oldChatDoc of oldChatsSnapshot.docs) {
+      const oldChatData = oldChatDoc.data() as Chat;
+
+      // 既存のchatRoomをチェック
+      const existingChatRoom = await findExistingChatRoom(
+        oldChatData.participants
+      );
+      if (existingChatRoom) {
+        console.log(
+          `Chat ${oldChatDoc.id} already migrated to ${existingChatRoom.id}`
+        );
+        continue;
+      }
+
+      // 新しいチャットルームドキュメントの作成
+      const newChatRoomRef = doc(collection(db, "chatRooms"));
+      currentBatch.set(newChatRoomRef, {
+        type: oldChatData.participants.length === 2 ? "direct" : "group",
+        participants: oldChatData.participants,
+        lastMessage: oldChatData.lastMessage || null,
+        createdAt: oldChatData.createdAt || serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isActive: true,
+        migratedFrom: oldChatDoc.id, // 移行元の記録
+      });
+
+      // 古いチャットを非アクティブとしてマーク
+      const oldChatRef = doc(db, "chats", oldChatDoc.id);
+      currentBatch.update(oldChatRef, {
+        isActive: false,
+        migratedTo: newChatRoomRef.id,
+        updatedAt: serverTimestamp(),
+      });
+
+      operationCount += 2; // 2つの操作をカウント
+
+      // バッチサイズの制限に達したら実行
+      if (operationCount >= batchSize) {
+        await currentBatch.commit();
+        currentBatch = writeBatch(db);
+        operationCount = 0;
+      }
+    }
+
+    // 残りのバッチを実行
+    if (operationCount > 0) {
+      await currentBatch.commit();
+    }
+  } catch (error: unknown) {
+    console.error("Migration failed:", error);
+    throw new Error("チャットデータの移行に失敗しました");
+  }
+};
+
+/**
+ * 既存のchatRoomを検索
+ * 参加者リストが完全に一致するチャットルームを探す
+ */
+const findExistingChatRoom = async (
+  participants: string[]
+): Promise<ChatRoom | null> => {
+  try {
+    // 参加者数が同じで、最初の参加者を含むチャットルームを検索
+    const q = query(
+      collection(db, "chatRooms"),
+      where("participants", "array-contains", participants[0])
+    );
+
+    const snapshot = await getDocs(q);
+
+    // 参加者リストが完全に一致するチャットルームを探す
+    for (const doc of snapshot.docs) {
+      const chatRoom = doc.data() as ChatRoom;
+      if (
+        chatRoom.participants.length === participants.length &&
+        participants.every((p) => chatRoom.participants.includes(p))
+      ) {
+        return { ...chatRoom, id: doc.id };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error finding existing chat room:", error);
+    return null;
   }
 };
