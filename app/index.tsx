@@ -32,7 +32,7 @@ export default function RootIndex() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // デバッグ用ログ
+  // すべてのuseEffectを先頭にまとめる
   useEffect(() => {
     console.log("RootIndex: Component mounted", {
       user: user?.email,
@@ -40,6 +40,13 @@ export default function RootIndex() {
       hasUser: !!user,
     });
   }, [user, isLoading]);
+
+  useEffect(() => {
+    if (user) {
+      console.log("RootIndex: User authenticated, redirecting to main screen");
+      router.replace("/(tabs)");
+    }
+  }, [user]);
 
   // ローディング状態の表示
   if (isLoading) {
@@ -52,10 +59,7 @@ export default function RootIndex() {
     );
   }
 
-  // 認証済みユーザーの場合、メイン画面にリダイレクト
   if (user) {
-    console.log("RootIndex: User authenticated, redirecting to main screen");
-    router.replace("/(tabs)");
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
