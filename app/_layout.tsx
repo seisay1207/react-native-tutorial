@@ -54,8 +54,7 @@ function AppContent() {
         name="chat"
         options={{
           title: "チャット",
-          headerShown: true,
-          headerBackTitle: "戻る",
+          headerShown: false,
         }}
       />
     </Stack>

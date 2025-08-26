@@ -18,7 +18,7 @@ import {
   getChatRooms,
   subscribeToMessages,
 } from "@/lib/firebase/firestore";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -274,6 +274,12 @@ export default function ChatScreen() {
       >
         {/* ヘッダー部分 */}
         <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.push("/(tabs)")}
+          >
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Text style={styles.title}>{chatTitle}</Text>
           </View>
@@ -336,12 +342,19 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
     backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+  backButton: {
+    marginRight: 15,
+    padding: 5,
+  },
+  backButtonText: {
+    fontSize: 24,
+    color: "#007bff",
   },
   titleContainer: {
     flexDirection: "row",
