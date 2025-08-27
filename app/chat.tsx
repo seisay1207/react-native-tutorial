@@ -53,9 +53,10 @@ export default function ChatScreen() {
   // ローカル状態の管理
   const [messages, setMessages] = useState<Message[]>([]); // メッセージリスト
   const [newMessage, setNewMessage] = useState(""); // 入力中のメッセージ
-  const [isLoading, setIsLoading] = useState(false); // ローディング状態
+  const [isLoading, setIsLoading] = useState(false); // メッセージ送信のローディング状態
+  const [isTitleLoading, setIsTitleLoading] = useState(true); // タイトルのローディング状態
   const [chatId, setChatId] = useState(initialChatId); // チャットルームID（動的）
-  const [chatTitle, setChatTitle] = useState("一般チャット"); // チャットルームタイトル
+  const [chatTitle, setChatTitle] = useState(""); // チャットルームタイトル
 
   // FlatListの参照（スクロール制御用）
   const flatListRef = useRef<FlatList>(null);
@@ -122,6 +123,7 @@ export default function ChatScreen() {
 
     const fetchChatRoomInfo = async () => {
       try {
+        setIsTitleLoading(true);
         const rooms = await getChatRooms(user.uid);
         const currentRoom = rooms.find((room) => room.id === chatId);
 
@@ -137,6 +139,9 @@ export default function ChatScreen() {
         }
       } catch (error) {
         console.error("Failed to fetch chat room info:", error);
+        setChatTitle("チャット"); // エラー時のフォールバック
+      } finally {
+        setIsTitleLoading(false);
       }
     };
 
@@ -281,7 +286,9 @@ export default function ChatScreen() {
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>{chatTitle}</Text>
+            <Text style={styles.title}>
+              {isTitleLoading ? "読み込み中..." : chatTitle}
+            </Text>
           </View>
         </View>
 
