@@ -11,6 +11,7 @@
  */
 
 import { subscribeToAuthChanges } from "@/lib/firebase/auth";
+import { getChatRooms } from "@/lib/firebase/firestore";
 import { User } from "firebase/auth";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
@@ -21,6 +22,9 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 interface AuthContextType {
   user: User | null; // 現在のユーザー（null = 未ログイン）
   isLoading: boolean; // 認証状態の読み込み中フラグ
+  getChatRoomInfo: (
+    chatId: string
+  ) => Promise<{ title: string; type: string } | null>; // チャットルーム情報を取得する関数
 }
 
 /**
@@ -91,15 +95,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 5000);
 
     return () => clearTimeout(timeoutId);
-  }, []);
+  }, [isLoading]);
 
   /**
    * Contextに提供する値
    * この値が子コンポーネントでuseAuth()で取得できる
    */
+  // チャットルーム情報を取得する関数
+  const getChatRoomInfo = async (chatId: string) => {
+    if (!user) return null;
+
+    try {
+      const rooms = await getChatRooms(user.uid);
+      const currentRoom = rooms.find((room) => room.id === chatId);
+
+      if (currentRoom) {
+        return {
+          title:
+            currentRoom.type === "group" && currentRoom.name
+              ? currentRoom.name
+              : "個別チャット",
+          type: currentRoom.type,
+        };
+      } else if (chatId === "general") {
+        return {
+          title: "一般チャット",
+          type: "general",
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error("Failed to fetch chat room info:", error);
+      return null;
+    }
+  };
+
   const value = {
     user,
     isLoading,
+    getChatRoomInfo,
   };
 
   // デバッグ用ログ（状態変化の追跡）

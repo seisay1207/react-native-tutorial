@@ -15,7 +15,6 @@ import { useAuth } from "@/lib/contexts/AuthContext";
 import {
   Message,
   addMessage,
-  getChatRooms,
   subscribeToMessages,
 } from "@/lib/firebase/firestore";
 import { router, useLocalSearchParams } from "expo-router";
@@ -44,7 +43,7 @@ import {
  */
 export default function ChatScreen() {
   // 認証状態の取得
-  const { user } = useAuth();
+  const { user, getChatRoomInfo } = useAuth();
 
   // URLパラメータからチャットルームIDを取得
   const params = useLocalSearchParams();
@@ -54,7 +53,8 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]); // メッセージリスト
   const [newMessage, setNewMessage] = useState(""); // 入力中のメッセージ
   const [isLoading, setIsLoading] = useState(false); // メッセージ送信のローディング状態
-  const [isTitleLoading, setIsTitleLoading] = useState(true); // タイトルのローディング状態
+  const [isInitializing, setIsInitializing] = useState(true); // 初期化中の状態
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [chatId, setChatId] = useState(initialChatId); // チャットルームID（動的）
   const [chatTitle, setChatTitle] = useState(""); // チャットルームタイトル
 
@@ -119,34 +119,27 @@ export default function ChatScreen() {
    * チャットルーム情報の取得
    */
   useEffect(() => {
-    if (!user) return;
+    const initializeChatRoom = async () => {
+      if (!user) return;
 
-    const fetchChatRoomInfo = async () => {
       try {
-        setIsTitleLoading(true);
-        const rooms = await getChatRooms(user.uid);
-        const currentRoom = rooms.find((room) => room.id === chatId);
-
-        if (currentRoom) {
-          if (currentRoom.type === "group" && currentRoom.name) {
-            setChatTitle(currentRoom.name);
-          } else {
-            setChatTitle("個別チャット");
-          }
+        setIsInitializing(true);
+        const roomInfo = await getChatRoomInfo(chatId);
+        if (roomInfo) {
+          setChatTitle(roomInfo.title);
         } else {
-          // 既存のgeneralチャットの場合
-          setChatTitle("一般チャット");
+          setChatTitle("チャット"); // フォールバック
         }
       } catch (error) {
-        console.error("Failed to fetch chat room info:", error);
+        console.error("Failed to initialize chat room:", error);
         setChatTitle("チャット"); // エラー時のフォールバック
       } finally {
-        setIsTitleLoading(false);
+        setIsInitializing(false);
       }
     };
 
-    fetchChatRoomInfo();
-  }, [chatId, user]);
+    initializeChatRoom();
+  }, [chatId, user, getChatRoomInfo]);
 
   useEffect(() => {
     if (!user) return; // ユーザーが未認証の場合は何もしない
@@ -270,6 +263,17 @@ export default function ChatScreen() {
    * - FlatList: 効率的なメッセージリスト表示
    * - TextInput: メッセージ入力フィールド
    */
+  // 初期化中はローディング画面を表示
+  if (isInitializing) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>読み込み中...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -287,7 +291,7 @@ export default function ChatScreen() {
           </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Text style={styles.title}>
-              {isTitleLoading ? "読み込み中..." : chatTitle}
+              {isInitializing ? "読み込み中..." : chatTitle}
             </Text>
           </View>
         </View>
@@ -343,6 +347,16 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+  },
+  loadingText: {
+    fontSize: 18,
+    color: "#666",
+  },
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
