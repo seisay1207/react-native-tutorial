@@ -12,6 +12,7 @@
  * 4. リアルタイム更新
  */
 
+import { Avatar } from "@/components/ui/Avatar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { signOutUser } from "@/lib/firebase/auth";
 import { createDirectChat, getChatRooms } from "@/lib/firebase/firestore";
@@ -149,6 +150,11 @@ export default function ChatListScreen() {
         style={styles.chatRoomItem}
         onPress={() => navigateToChat(item.id)}
       >
+        <Avatar
+          name={getChatTitle()}
+          size={50}
+          backgroundColor={item.type === "group" ? "#34C759" : "#007AFF"}
+        />
         <View style={styles.chatRoomInfo}>
           <Text style={styles.chatRoomTitle}>{getChatTitle()}</Text>
           <Text style={styles.lastMessage} numberOfLines={1}>
@@ -246,7 +252,11 @@ export default function ChatListScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator
+            size="large"
+            color="#007AFF"
+            style={{ transform: [{ scale: 1.2 }] }}
+          />
           <Text style={styles.loadingText}>チャットルームを読み込み中...</Text>
         </View>
       </SafeAreaView>
@@ -279,7 +289,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#e1e5e9",
@@ -287,101 +298,126 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
     color: "#1a1a1a",
+    letterSpacing: -0.5,
   },
   createButton: {
     backgroundColor: "#007AFF",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    minWidth: 80,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 22,
+    minWidth: 90,
     alignItems: "center",
+    shadowColor: "#007AFF",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
   },
   createButtonDisabled: {
-    backgroundColor: "#ccc",
+    backgroundColor: "#A0A0A0",
+    shadowOpacity: 0,
   },
   createButtonText: {
     color: "#fff",
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: 15,
+    letterSpacing: -0.2,
   },
   logoutButton: {
     marginLeft: 8,
-    backgroundColor: "#fff5f5",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#ffd6d6",
-    minWidth: 80,
+    backgroundColor: "#FFF5F5",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 22,
+    minWidth: 90,
     alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#FFD6D6",
   },
   logoutButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.5,
+    backgroundColor: "#F8F8F8",
+    borderColor: "#E0E0E0",
   },
   logoutButtonText: {
     color: "#FF3B30",
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: 15,
+    letterSpacing: -0.2,
   },
   chatRoomItem: {
     backgroundColor: "#fff",
     padding: 16,
     marginHorizontal: 16,
-    marginVertical: 4,
-    borderRadius: 12,
+    marginVertical: 6,
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 1,
+      height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
   },
   chatRoomInfo: {
     flex: 1,
+    marginLeft: 16,
     marginRight: 12,
   },
   chatRoomTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
     color: "#1a1a1a",
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: -0.4,
   },
   lastMessage: {
-    fontSize: 14,
+    fontSize: 15,
     color: "#666",
-    lineHeight: 18,
+    lineHeight: 20,
+    letterSpacing: -0.2,
   },
   chatRoomMeta: {
     alignItems: "flex-end",
+    minWidth: 80,
   },
   participantCount: {
-    fontSize: 12,
-    color: "#999",
-    marginBottom: 4,
+    fontSize: 13,
+    color: "#007AFF",
+    marginBottom: 6,
+    fontWeight: "500",
   },
   lastMessageTime: {
-    fontSize: 12,
+    fontSize: 13,
     color: "#999",
+    fontWeight: "500",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#fff",
   },
   loadingText: {
     marginTop: 16,
-    fontSize: 16,
+    fontSize: 17,
     color: "#666",
+    letterSpacing: -0.2,
+    fontWeight: "500",
   },
   emptyListContainer: {
     flex: 1,
@@ -391,18 +427,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 32,
+    backgroundColor: "#fff",
   },
   emptyStateText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600",
-    color: "#666",
+    color: "#1a1a1a",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: -0.4,
   },
   emptyStateSubtext: {
-    fontSize: 14,
-    color: "#999",
+    fontSize: 15,
+    color: "#666",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 22,
+    letterSpacing: -0.2,
+    maxWidth: 280,
   },
 });
