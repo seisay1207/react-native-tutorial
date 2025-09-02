@@ -15,7 +15,7 @@
 import { Avatar } from "@/components/ui/Avatar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { signOutUser } from "@/lib/firebase/auth";
-import { createDirectChat, getChatRooms } from "@/lib/firebase/firestore";
+import { getChatRooms } from "@/lib/firebase/firestore";
 import { ChatRoom } from "@/lib/firebase/models";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -69,42 +69,8 @@ export default function ChatListScreen() {
   /**
    * 新しい個別チャットルームの作成
    */
-  const createNewChat = async () => {
-    if (!user) return;
-
-    try {
-      setIsCreatingChat(true);
-
-      // 簡易的な実装: 自分自身とのチャットを作成
-      // 実際の実装では、友達選択画面を表示する
-      const chatId = await createDirectChat(user.uid, user.uid);
-
-      Alert.alert(
-        "チャットルーム作成",
-        "新しいチャットルームが作成されました",
-        [
-          {
-            text: "チャットを開く",
-            onPress: () => {
-              // 作成されたチャットルームIDをチャット画面に渡す
-              router.replace({
-                pathname: "/chat",
-                params: { chatId: chatId },
-              });
-            },
-          },
-          { text: "キャンセル", style: "cancel" },
-        ]
-      );
-
-      // チャットルーム一覧を更新
-      await fetchChatRooms();
-    } catch (error) {
-      console.error("チャットルームの作成に失敗:", error);
-      Alert.alert("エラー", "チャットルームの作成に失敗しました");
-    } finally {
-      setIsCreatingChat(false);
-    }
+  const createNewChat = () => {
+    router.push("/select-user");
   };
 
   /**
