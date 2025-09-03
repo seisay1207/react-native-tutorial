@@ -1,0 +1,104 @@
+{
+  "users": {
+    "test_user_1": {
+      "id": "test_user_1",
+      "email": "yamada.taro@example.com",
+      "displayName": "山田 太郎",
+      "avatar": null,
+      "isOnline": true,
+      "lastSeen": {
+        "__type": "timestamp",
+        "value": "2024-03-20T10:00:00Z"
+      },
+      "createdAt": {
+        "__type": "timestamp",
+        "value": "2024-03-20T10:00:00Z"
+      },
+      "updatedAt": {
+        "__type": "timestamp",
+        "value": "2024-03-20T10:00:00Z"
+      },
+      "status": "よろしくお願いします！"
+    },
+    "test_user_2": {
+      "id": "test_user_2",
+      "email": "suzuki.hanako@example.com",
+      "displayName": "鈴木 花子",
+      "avatar": null,
+      "isOnline": false,
+      "lastSeen": {
+        "__type": "timestamp",
+        "value": "2024-03-20T09:30:00Z"
+      },
+      "createdAt": {
+        "__type": "timestamp",
+        "value": "2024-03-20T09:30:00Z"
+      },
+      "updatedAt": {
+        "__type": "timestamp",
+        "value": "2024-03-20T09:30:00Z"
+      },
+      "status": "チャット初心者です"
+    },
+    "test_user_3": {
+      "id": "test_user_3",
+      "email": "tanaka.ichiro@example.com",
+      "displayName": "田中 一郎",
+      "avatar": null,
+      "isOnline": true,
+      "lastSeen": {
+        "__type": "timestamp",
+        "value": "2024-03-20T10:15:00Z"
+      },
+      "createdAt": {
+        "__type": "timestamp",
+        "value": "2024-03-20T10:15:00Z"
+      },
+      "updatedAt": {
+        "__type": "timestamp",
+        "value": "2024-03-20T10:15:00Z"
+      },
+      "status": "プログラミング好きです"
+    },
+    "test_user_4": {
+      "id": "test_user_4",
+      "email": "sato.yuki@example.com",
+      "displayName": "佐藤 ユキ",
+      "avatar": null,
+      "isOnline": true,
+      "lastSeen": {
+        "__type": "timestamp",
+        "value": "2024-03-20T10:30:00Z"
+      },
+      "createdAt": {
+        "__type": "timestamp",
+        "value": "2024-03-20T10:30:00Z"
+      },
+      "updatedAt": {
+        "__type": "timestamp",
+        "value": "2024-03-20T10:30:00Z"
+      },
+      "status": "写真撮影が趣味です"
+    },
+    "test_user_5": {
+      "id": "test_user_5",
+      "email": "kato.masashi@example.com",
+      "displayName": "加藤 雅史",
+      "avatar": null,
+      "isOnline": false,
+      "lastSeen": {
+        "__type": "timestamp",
+        "value": "2024-03-20T09:45:00Z"
+      },
+      "createdAt": {
+        "__type": "timestamp",
+        "value": "2024-03-20T09:45:00Z"
+      },
+      "updatedAt": {
+        "__type": "timestamp",
+        "value": "2024-03-20T09:45:00Z"
+      },
+      "status": "音楽とプログラミングが好きです"
+    }
+  }
+}
