@@ -227,18 +227,15 @@ export const getAllUsers = async (
   currentUserId: string
 ): Promise<UserProfile[]> => {
   try {
-    const q = query(
-      collection(db, "users"),
-      where("id", "!=", currentUserId),
-      orderBy("id"),
-      orderBy("displayName")
-    );
+    const q = query(collection(db, "users"), orderBy("displayName"));
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as UserProfile[];
+    return snapshot.docs
+      .filter((doc) => doc.id !== currentUserId) // 現在のユーザーを除外
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as UserProfile[];
   } catch (error: unknown) {
     console.error("Users fetch error:", error);
     throw new Error("ユーザー一覧の取得に失敗しました");
