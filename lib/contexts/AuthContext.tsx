@@ -12,6 +12,7 @@
 
 import { subscribeToAuthChanges } from "@/lib/firebase/auth";
 import { getChatRooms } from "@/lib/firebase/firestore";
+import { router } from "expo-router";
 import { User } from "firebase/auth";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
@@ -70,11 +71,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("AuthContext: Auth state changed", {
         user: user?.email,
         userId: user?.uid,
+        isAuthenticated: !!user,
       });
 
       // 認証状態を更新
       setUser(user);
       setIsLoading(false); // 初期読み込み完了
+
+      // ログアウト時（userがnullの場合）の処理
+      if (!user) {
+        console.log("AuthContext: User logged out, triggering navigation");
+        router.replace("/(auth)");
+      }
     });
 
     // クリーンアップ関数を返す（コンポーネントアンマウント時に実行）

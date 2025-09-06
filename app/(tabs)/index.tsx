@@ -181,12 +181,16 @@ export default function ChatListScreen() {
                 onPress: async () => {
                   setIsSigningOut(true);
                   try {
+                    console.log("ログアウト処理開始");
                     const result = await signOutUser();
-                    if (result.success) {
-                      Alert.alert("成功", "ログアウトしました");
-                    } else {
+                    console.log("ログアウト結果:", result);
+                    if (!result.success) {
+                      console.log("ログアウト失敗");
                       Alert.alert("エラー", "ログアウトに失敗しました");
                     }
+                  } catch (error) {
+                    console.error("ログアウト処理でエラー発生:", error);
+                    Alert.alert("エラー", "予期せぬエラーが発生しました");
                   } finally {
                     setIsSigningOut(false);
                   }
