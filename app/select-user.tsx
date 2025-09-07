@@ -13,7 +13,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { createDirectChat, getAllUsers } from "@/lib/firebase/firestore";
 import { UserProfile } from "@/lib/firebase/models";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -26,14 +26,18 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useFriends } from "../hooks/useFriends";
 
 export default function SelectUserScreen() {
   const { user } = useAuth();
+  const { mode } = useLocalSearchParams<{ mode?: "chat" | "friend" }>();
+  const { sendRequest } = useFriends();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [isSendingRequest, setIsSendingRequest] = useState(false);
 
   // ユーザー一覧の取得
   useEffect(() => {
@@ -67,22 +71,41 @@ export default function SelectUserScreen() {
     setFilteredUsers(filtered);
   }, [searchQuery, users]);
 
-  // チャットルームの作成とチャット画面への遷移
+  // ユーザー選択時の処理（チャット開始または友達追加）
   const handleUserSelect = async (selectedUser: UserProfile) => {
     if (!user) return;
 
-    try {
-      setIsCreatingChat(true);
-      const chatId = await createDirectChat(user.uid, selectedUser.id);
-      router.replace({
-        pathname: "/chat",
-        params: { chatId },
-      });
-    } catch (error) {
-      console.error("Failed to create chat:", error);
-      Alert.alert("エラー", "チャットルームの作成に失敗しました");
-    } finally {
-      setIsCreatingChat(false);
+    if (mode === "chat") {
+      try {
+        setIsCreatingChat(true);
+        const chatId = await createDirectChat(user.uid, selectedUser.id);
+        router.replace({
+          pathname: "/chat",
+          params: { chatId },
+        });
+      } catch (error) {
+        console.error("Failed to create chat:", error);
+        Alert.alert("エラー", "チャットルームの作成に失敗しました");
+      } finally {
+        setIsCreatingChat(false);
+      }
+    } else {
+      try {
+        setIsSendingRequest(true);
+        await sendRequest(selectedUser.id);
+        Alert.alert("成功", "友達リクエストを送信しました");
+        router.back();
+      } catch (error) {
+        console.error("Failed to send friend request:", error);
+        Alert.alert(
+          "エラー",
+          error instanceof Error
+            ? error.message
+            : "友達リクエストの送信に失敗しました"
+        );
+      } finally {
+        setIsSendingRequest(false);
+      }
     }
   };
 
@@ -91,7 +114,7 @@ export default function SelectUserScreen() {
     <TouchableOpacity
       style={styles.userItem}
       onPress={() => handleUserSelect(item)}
-      disabled={isCreatingChat}
+      disabled={isCreatingChat || isSendingRequest}
     >
       <Avatar
         name={item.displayName || item.email || "Unknown"}
@@ -126,7 +149,9 @@ export default function SelectUserScreen() {
       >
         <Text style={styles.backButtonText}>←</Text>
       </TouchableOpacity>
-      <Text style={styles.title}>チャット相手を選択</Text>
+      <Text style={styles.title}>
+        {mode === "chat" ? "チャット相手を選択" : "友達を追加"}
+      </Text>
     </View>
   );
 
@@ -176,10 +201,14 @@ export default function SelectUserScreen() {
           </View>
         }
       />
-      {isCreatingChat && (
+      {(isCreatingChat || isSendingRequest) && (
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.overlayText}>チャットルームを作成中...</Text>
+          <Text style={styles.overlayText}>
+            {isCreatingChat
+              ? "チャットルームを作成中..."
+              : "友達リクエストを送信中..."}
+          </Text>
         </View>
       )}
     </SafeAreaView>

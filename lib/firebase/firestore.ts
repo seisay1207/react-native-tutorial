@@ -14,18 +14,262 @@
 import {
   addDoc,
   collection,
+  doc,
+  getDoc,
   getDocs,
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   Timestamp,
+  updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "./config";
 
 // 新しいデータモデルをインポート
-import { ChatRoom, UserProfile } from "./models";
+import { ChatRoom, FriendRequest, Friendship, UserProfile } from "./models";
+
+/**
+ * 友達リクエストの送信
+ */
+export const sendFriendRequest = async (
+  fromUserId: string,
+  toUserId: string,
+  message?: string
+): Promise<string> => {
+  try {
+    // 既存のリクエストをチェック
+    const existingRequest = await checkExistingFriendRequest(
+      fromUserId,
+      toUserId
+    );
+    if (existingRequest) {
+      throw new Error("既に友達リクエストが送信されています");
+    }
+
+    const docRef = await addDoc(collection(db, "friendRequests"), {
+      fromUser: fromUserId,
+      toUser: toUserId,
+      message,
+      status: "pending",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    return docRef.id;
+  } catch (error: unknown) {
+    console.error("Friend request send error:", error);
+    throw error instanceof Error
+      ? error
+      : new Error("友達リクエストの送信に失敗しました");
+  }
+};
+
+/**
+ * 既存の友達リクエストをチェック
+ */
+const checkExistingFriendRequest = async (
+  fromUserId: string,
+  toUserId: string
+): Promise<FriendRequest | null> => {
+  const q = query(
+    collection(db, "friendRequests"),
+    where("fromUser", "==", fromUserId),
+    where("toUser", "==", toUserId),
+    where("status", "==", "pending")
+  );
+
+  const snapshot = await getDocs(q);
+  if (!snapshot.empty) {
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as FriendRequest;
+  }
+  return null;
+};
+
+/**
+ * 友達リクエストの承認
+ */
+export const acceptFriendRequest = async (requestId: string): Promise<void> => {
+  try {
+    const docRef = doc(db, "friendRequests", requestId);
+    const requestSnapshot = await getDoc(docRef);
+
+    if (!requestSnapshot.exists()) {
+      throw new Error("友達リクエストが見つかりません");
+    }
+
+    const request = requestSnapshot.data() as FriendRequest;
+    if (request.status !== "pending") {
+      throw new Error("このリクエストは既に処理されています");
+    }
+
+    // トランザクションで友達関係を作成
+    await runTransaction(db, async (transaction) => {
+      // リクエストを承認済みに更新
+      transaction.update(docRef, {
+        status: "accepted",
+        updatedAt: serverTimestamp(),
+      });
+
+      // 友達関係を作成
+      const friendshipRef = doc(collection(db, "friendships"));
+      transaction.set(friendshipRef, {
+        user1: request.fromUser,
+        user2: request.toUser,
+        status: "accepted",
+        requestedBy: request.fromUser,
+        requestedAt: request.createdAt,
+        acceptedAt: serverTimestamp(),
+      });
+    });
+  } catch (error: unknown) {
+    console.error("Friend request accept error:", error);
+    throw error instanceof Error
+      ? error
+      : new Error("友達リクエストの承認に失敗しました");
+  }
+};
+
+/**
+ * 友達リクエストの拒否
+ */
+export const rejectFriendRequest = async (requestId: string): Promise<void> => {
+  try {
+    const docRef = doc(db, "friendRequests", requestId);
+    await updateDoc(docRef, {
+      status: "rejected",
+      updatedAt: serverTimestamp(),
+      rejectedAt: serverTimestamp(),
+    });
+  } catch (error: unknown) {
+    console.error("Friend request reject error:", error);
+    throw new Error("友達リクエストの拒否に失敗しました");
+  }
+};
+
+/**
+ * 友達リストの取得
+ */
+export const getFriends = async (userId: string): Promise<UserProfile[]> => {
+  try {
+    // user1またはuser2としての友達関係を検索
+    const q1 = query(
+      collection(db, "friendships"),
+      where("user1", "==", userId),
+      where("status", "==", "accepted")
+    );
+    const q2 = query(
+      collection(db, "friendships"),
+      where("user2", "==", userId),
+      where("status", "==", "accepted")
+    );
+
+    const [snapshot1, snapshot2] = await Promise.all([
+      getDocs(q1),
+      getDocs(q2),
+    ]);
+
+    // 友達のIDを収集
+    const friendIds = new Set<string>();
+    snapshot1.docs.forEach((doc) => {
+      const friendship = doc.data() as Friendship;
+      friendIds.add(friendship.user2);
+    });
+    snapshot2.docs.forEach((doc) => {
+      const friendship = doc.data() as Friendship;
+      friendIds.add(friendship.user1);
+    });
+
+    // 友達のプロフィール情報を取得
+    const friendProfiles: UserProfile[] = [];
+    for (const friendId of friendIds) {
+      const userDoc = await getDoc(doc(db, "users", friendId));
+      if (userDoc.exists()) {
+        friendProfiles.push({
+          id: userDoc.id,
+          ...userDoc.data(),
+        } as UserProfile);
+      }
+    }
+
+    return friendProfiles;
+  } catch (error: unknown) {
+    console.error("Get friends error:", error);
+    throw new Error("友達リストの取得に失敗しました");
+  }
+};
+
+/**
+ * 受信した友達リクエストの取得
+ */
+export const getReceivedFriendRequests = async (
+  userId: string
+): Promise<FriendRequest[]> => {
+  try {
+    const q = query(
+      collection(db, "friendRequests"),
+      where("toUser", "==", userId),
+      where("status", "==", "pending"),
+      orderBy("createdAt", "desc")
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as FriendRequest[];
+  } catch (error: unknown) {
+    console.error("Get received friend requests error:", error);
+    throw new Error("受信した友達リクエストの取得に失敗しました");
+  }
+};
+
+/**
+ * 友達関係の削除
+ */
+export const removeFriend = async (
+  userId: string,
+  friendId: string
+): Promise<void> => {
+  try {
+    // user1またはuser2としての友達関係を検索
+    const q1 = query(
+      collection(db, "friendships"),
+      where("user1", "==", userId),
+      where("user2", "==", friendId),
+      where("status", "==", "accepted")
+    );
+    const q2 = query(
+      collection(db, "friendships"),
+      where("user1", "==", friendId),
+      where("user2", "==", userId),
+      where("status", "==", "accepted")
+    );
+
+    const [snapshot1, snapshot2] = await Promise.all([
+      getDocs(q1),
+      getDocs(q2),
+    ]);
+
+    // 友達関係のドキュメントを削除
+    const batch = writeBatch(db);
+    snapshot1.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+    snapshot2.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+  } catch (error: unknown) {
+    console.error("Remove friend error:", error);
+    throw new Error("友達の削除に失敗しました");
+  }
+};
 
 /**
  * @deprecated このインターフェースは非推奨です。
