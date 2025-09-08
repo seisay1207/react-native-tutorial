@@ -9,7 +9,7 @@
  * - チャット相手の選択
  */
 
-import { Avatar } from "@/components/ui/Avatar";
+import Avatar from "@/components/ui/Avatar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { createDirectChat, getAllUsers } from "@/lib/firebase/firestore";
 import { UserProfile } from "@/lib/firebase/models";

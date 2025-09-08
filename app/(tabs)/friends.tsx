@@ -11,8 +11,8 @@
  * 3. 将来の機能拡張への準備
  */
 
-import { Avatar } from "@/components/ui/Avatar";
-import { Button } from "@/components/ui/Button";
+import Avatar from "@/components/ui/Avatar";
+import Button from "@/components/ui/Button";
 import { useFriends } from "@/hooks/useFriends";
 import { UserProfile } from "@/lib/firebase/models";
 import { useRouter } from "expo-router";

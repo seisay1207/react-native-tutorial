@@ -8,20 +8,24 @@
  * - 画像がない場合は、名前の頭文字を表示
  */
 
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View, ViewStyle } from "react-native";
 
 interface AvatarProps {
-  name: string;
+  name?: string;
+  uri?: string;
   size?: number;
   backgroundColor?: string;
   textColor?: string;
+  style?: ViewStyle;
 }
 
-export function Avatar({
+export default function Avatar({
   name,
+  uri,
   size = 40,
   backgroundColor = "#007AFF",
   textColor = "#FFFFFF",
+  style,
 }: AvatarProps) {
   // 名前から頭文字を取得
   const getInitials = (name: string) => {
@@ -33,18 +37,34 @@ export function Avatar({
       .slice(0, 2);
   };
 
+  const containerStyle = [
+    styles.container,
+    {
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      backgroundColor,
+    },
+    style,
+  ];
+
+  if (uri) {
+    return (
+      <View style={containerStyle}>
+        <Image
+          source={{ uri }}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+          }}
+        />
+      </View>
+    );
+  }
+
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor,
-        },
-      ]}
-    >
+    <View style={containerStyle}>
       <Text
         style={[
           styles.text,
@@ -54,7 +74,7 @@ export function Avatar({
           },
         ]}
       >
-        {getInitials(name)}
+        {name ? getInitials(name) : "?"}
       </Text>
     </View>
   );

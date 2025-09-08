@@ -12,7 +12,7 @@
  * 4. リアルタイム更新
  */
 
-import { Avatar } from "@/components/ui/Avatar";
+import Avatar from "@/components/ui/Avatar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { signOutUser } from "@/lib/firebase/auth";
 import { getChatRooms } from "@/lib/firebase/firestore";

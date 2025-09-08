@@ -12,8 +12,10 @@
  */
 
 import {
+  StyleProp,
   StyleSheet,
   Text,
+  TextStyle,
   TouchableOpacity,
   TouchableOpacityProps,
 } from "react-native";
@@ -25,16 +27,21 @@ import {
  * - TouchableOpacityPropsを継承してReact Nativeの標準プロパティを利用
  * - バリエーションとサイズの選択肢を提供
  * - 型安全性を確保
+ * - 柔軟なコンテンツ表示をサポート
  *
  * 【プロパティ説明】
- * - title: ボタンに表示するテキスト
+ * - title: ボタンに表示するテキスト（オプション）
+ * - children: ボタンのコンテンツ（オプション、titleと排他的）
  * - variant: ボタンの種類（primary: メイン, secondary: サブ, danger: 危険）
  * - size: ボタンのサイズ（small, medium, large）
+ * - textStyle: テキストのカスタムスタイル（オプション）
  */
 interface ButtonProps extends TouchableOpacityProps {
-  title: string;
+  title?: string;
+  children?: React.ReactNode;
   variant?: "primary" | "secondary" | "danger";
   size?: "small" | "medium" | "large";
+  textStyle?: StyleProp<TextStyle>;
 }
 
 /**
@@ -52,12 +59,16 @@ interface ButtonProps extends TouchableOpacityProps {
  */
 export default function Button({
   title,
+  children,
   variant = "primary",
   size = "medium",
   disabled,
   style,
+  textStyle,
   ...props
 }: ButtonProps) {
+  const content = title || children;
+
   return (
     <TouchableOpacity
       style={[
@@ -70,16 +81,21 @@ export default function Button({
       disabled={disabled}
       {...props} // その他のTouchableOpacityプロパティを継承
     >
-      <Text
-        style={[
-          styles.text, // 基本テキストスタイル
-          styles[`${variant}Text`], // バリエーション固有のテキストスタイル
-          styles[`${size}Text`], // サイズ固有のテキストスタイル
-          disabled && styles.disabledText, // 無効状態のテキストスタイル
-        ]}
-      >
-        {title}
-      </Text>
+      {typeof content === "string" ? (
+        <Text
+          style={[
+            styles.text, // 基本テキストスタイル
+            styles[`${variant}Text`], // バリエーション固有のテキストスタイル
+            styles[`${size}Text`], // サイズ固有のテキストスタイル
+            disabled && styles.disabledText, // 無効状態のテキストスタイル
+            textStyle, // カスタムテキストスタイル
+          ]}
+        >
+          {content}
+        </Text>
+      ) : (
+        content
+      )}
     </TouchableOpacity>
   );
 }
