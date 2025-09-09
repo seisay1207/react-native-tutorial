@@ -14,6 +14,7 @@
 import Avatar from "@/components/ui/Avatar";
 import Button from "@/components/ui/Button";
 import { useFriends } from "@/hooks/useFriends";
+import { useAuth } from "@/lib/contexts/AuthContext";
 import { UserProfile } from "@/lib/firebase/models";
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
@@ -39,6 +40,7 @@ import {
  */
 export default function FriendsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const {
     friends,
     receivedRequests,
@@ -130,7 +132,7 @@ export default function FriendsScreen() {
 
   // 友達リクエストのレンダリング
   const renderRequest = useCallback(
-    ({ item: request }) => (
+    ({ item: request }: { item: { id: string; message?: string } }) => (
       <View style={styles.requestItem}>
         <Text style={styles.requestText}>
           {request.message || "友達になりたいです！"}
@@ -158,7 +160,7 @@ export default function FriendsScreen() {
 
   // 友達アイテムのレンダリング
   const renderFriend = useCallback(
-    ({ item: friend }) => (
+    ({ item: friend }: { item: UserProfile }) => (
       <Pressable style={styles.friendItem} onPress={() => startChat(friend)}>
         <Avatar size={40} uri={friend.avatar} style={styles.avatar} />
         <View style={styles.friendInfo}>
@@ -201,6 +203,48 @@ export default function FriendsScreen() {
     );
   }
 
+  // ユーザープロフィールエリアのレンダリング
+  const renderUserProfile = () => (
+    <View style={styles.profileContainer}>
+      <View style={styles.profileHeader}>
+        <Avatar
+          uri={user?.photoURL || undefined}
+          name={user?.displayName || "ゲスト"}
+          size={60}
+          style={styles.profileAvatar}
+        />
+        <View style={styles.profileInfo}>
+          <Text style={styles.profileName}>
+            {user?.displayName || "ゲスト"}
+          </Text>
+          <Text style={styles.profileEmail}>{user?.email || "未設定"}</Text>
+        </View>
+      </View>
+      <View style={styles.profileActions}>
+        <Button
+          style={styles.profileButton}
+          textStyle={styles.profileButtonText}
+          onPress={() => {
+            // TODO: プロフィール編集画面への遷移
+            Alert.alert("お知らせ", "プロフィール編集機能は開発中です");
+          }}
+        >
+          プロフィール編集
+        </Button>
+        <Button
+          style={[styles.profileButton, styles.settingsButton]}
+          textStyle={styles.profileButtonText}
+          onPress={() => {
+            // TODO: 設定画面への遷移
+            Alert.alert("お知らせ", "設定機能は開発中です");
+          }}
+        >
+          設定
+        </Button>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       {loading ? (
@@ -213,17 +257,20 @@ export default function FriendsScreen() {
           renderItem={renderFriend}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={
-            receivedRequests.length > 0 ? (
-              <View style={styles.requestsContainer}>
-                <Text style={styles.sectionTitle}>友達リクエスト</Text>
-                <FlatList
-                  data={receivedRequests}
-                  renderItem={renderRequest}
-                  keyExtractor={(item) => item.id}
-                  scrollEnabled={false}
-                />
-              </View>
-            ) : null
+            <>
+              {renderUserProfile()}
+              {receivedRequests.length > 0 && (
+                <View style={styles.requestsContainer}>
+                  <Text style={styles.sectionTitle}>友達リクエスト</Text>
+                  <FlatList
+                    data={receivedRequests}
+                    renderItem={renderRequest}
+                    keyExtractor={(item) => item.id}
+                    scrollEnabled={false}
+                  />
+                </View>
+              )}
+            </>
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -258,6 +305,60 @@ export default function FriendsScreen() {
 }
 
 const styles = StyleSheet.create({
+  profileContainer: {
+    backgroundColor: "#fff",
+    padding: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  profileAvatar: {
+    marginRight: 16,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    marginBottom: 4,
+  },
+  profileEmail: {
+    fontSize: 14,
+    color: "#666",
+  },
+  profileActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  profileButton: {
+    flex: 1,
+    backgroundColor: "#007AFF",
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  settingsButton: {
+    backgroundColor: "#34C759",
+  },
+  profileButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
   container: {
     flex: 1,
     backgroundColor: "#fff",
