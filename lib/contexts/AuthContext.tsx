@@ -12,6 +12,7 @@
 
 import { subscribeToAuthChanges } from "@/lib/firebase/auth";
 import { getChatRooms } from "@/lib/firebase/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { User } from "firebase/auth";
 import React, { createContext, useContext, useEffect, useState } from "react";
@@ -78,8 +79,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
       setIsLoading(false); // 初期読み込み完了
 
-      // ログアウト時（userがnullの場合）の処理
-      if (!user) {
+      // ログイン状態をAsyncStorageに保存
+      if (user) {
+        AsyncStorage.setItem(
+          "auth_user",
+          JSON.stringify({
+            email: user.email,
+            uid: user.uid,
+          })
+        );
+      } else {
+        // ログアウト時はAsyncStorageから削除
+        AsyncStorage.removeItem("auth_user");
         console.log("AuthContext: User logged out, triggering navigation");
         router.replace("/(auth)");
       }

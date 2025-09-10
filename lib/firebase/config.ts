@@ -138,6 +138,8 @@ EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id
   // 認証とFirestoreのインスタンスを取得
   try {
     auth = getAuth(app);
+    // ログイン状態の永続化を設定
+    // ログイン状態の永続化は AuthContext で実装
     db = getFirestore(app);
     console.log("✅ Firebase Auth and Firestore instances created");
   } catch (error) {
