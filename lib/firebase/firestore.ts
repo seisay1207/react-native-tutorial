@@ -53,7 +53,7 @@ export const sendFriendRequest = async (
     const docRef = await addDoc(collection(db, "friendRequests"), {
       fromUser: fromUserId,
       toUser: toUserId,
-      message,
+      message: message || "友達になりたいです！", // デフォルトメッセージを設定
       status: "pending",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
