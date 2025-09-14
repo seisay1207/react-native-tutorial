@@ -92,6 +92,7 @@ export interface ExtendedMessage {
     mimeType?: string;
     url?: string;
   };
+  readBy?: string[]; // メッセージを既読したユーザーのID配列
 }
 
 /**

@@ -11,12 +11,16 @@
  * 5. パフォーマンス最適化（useRef, useEffect）
  */
 
+import { ChatInput } from "@/components/ui/ChatInput";
+import { ChatMessage } from "@/components/ui/ChatMessage";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import {
-  Message,
-  addMessage,
-  subscribeToMessages,
-} from "@/lib/firebase/firestore";
+  markMessageAsRead,
+  sendMessage,
+  subscribeToChatMessages,
+} from "@/lib/firebase/chat";
+import { ExtendedMessage } from "@/lib/firebase/models";
+import { uploadDocument, uploadImage } from "@/lib/firebase/storage";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -27,7 +31,6 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -50,8 +53,7 @@ export default function ChatScreen() {
   const initialChatId = (params.chatId as string) || "general";
 
   // ローカル状態の管理
-  const [messages, setMessages] = useState<Message[]>([]); // メッセージリスト
-  const [newMessage, setNewMessage] = useState(""); // 入力中のメッセージ
+  const [messages, setMessages] = useState<ExtendedMessage[]>([]); // メッセージリスト
   const [isLoading, setIsLoading] = useState(false); // メッセージ送信のローディング状態
   const [isInitializing, setIsInitializing] = useState(true); // 初期化中の状態
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -60,47 +62,6 @@ export default function ChatScreen() {
 
   // FlatListの参照（スクロール制御用）
   const flatListRef = useRef<FlatList>(null);
-
-  /**
-   * 安全な時間フォーマット関数
-   *
-   * FirestoreのTimestamp型を安全にDate型に変換してフォーマット
-   */
-  const formatMessageTime = (timestamp: any): string => {
-    if (!timestamp) return "";
-
-    try {
-      // Timestamp型の場合はtoDate()を呼ぶ
-      if (timestamp && typeof timestamp.toDate === "function") {
-        return timestamp.toDate().toLocaleTimeString("ja-JP", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-      }
-
-      // Date型の場合はそのまま使用
-      if (timestamp instanceof Date) {
-        return timestamp.toLocaleTimeString("ja-JP", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-      }
-
-      // 文字列や数値の場合はDateに変換
-      const date = new Date(timestamp);
-      if (!isNaN(date.getTime())) {
-        return date.toLocaleTimeString("ja-JP", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-      }
-
-      return "";
-    } catch (error) {
-      console.warn("Failed to format timestamp:", timestamp, error);
-      return "";
-    }
-  };
 
   /**
    * メッセージのリアルタイム監視
@@ -147,7 +108,7 @@ export default function ChatScreen() {
     console.log("Setting up message subscription for chatId:", chatId);
 
     // Firestoreのリアルタイムリスナーを設定
-    const unsubscribe = subscribeToMessages(chatId, (newMessages) => {
+    const unsubscribe = subscribeToChatMessages(chatId, (newMessages) => {
       console.log("Received messages:", newMessages.length);
       setMessages(newMessages); // メッセージリストを更新
     });
@@ -168,25 +129,88 @@ export default function ChatScreen() {
    * 3. 入力フィールドをクリア
    * 4. エラーハンドリング
    */
-  const handleSendMessage = async () => {
-    if (!user || !newMessage.trim()) return; // 未認証または空メッセージの場合は何もしない
+  const handleSendMessage = async (text: string) => {
+    if (!user) return; // 未認証の場合は何もしない
 
     setIsLoading(true);
-    console.log("Sending message:", newMessage);
+    console.log("Sending message:", text);
 
     try {
       // Firestoreにメッセージを保存
-      await addMessage({
+      await sendMessage(chatId, {
         chatId,
-        text: newMessage.trim(),
+        text: text.trim(),
         sender: user.email || "unknown",
+        type: "text",
       });
 
-      setNewMessage(""); // 入力フィールドをクリア
       console.log("Message sent successfully");
     } catch (error) {
       console.error("Failed to send message:", error);
       Alert.alert("エラー", "メッセージの送信に失敗しました");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendImage = async (uri: string) => {
+    if (!user) return;
+
+    setIsLoading(true);
+    console.log("Sending image:", uri);
+
+    try {
+      // 画像をStorageにアップロード
+      const imageUrl = await uploadImage(uri, chatId);
+
+      // Firestoreにメッセージを保存
+      await sendMessage(chatId, {
+        chatId,
+        text: "画像を送信しました",
+        sender: user.email || "unknown",
+        type: "image",
+        metadata: {
+          url: imageUrl,
+          mimeType: "image/jpeg",
+        },
+      });
+
+      console.log("Image sent successfully");
+    } catch (error) {
+      console.error("Failed to send image:", error);
+      Alert.alert("エラー", "画像の送信に失敗しました");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendFile = async (uri: string, fileName: string) => {
+    if (!user) return;
+
+    setIsLoading(true);
+    console.log("Sending file:", fileName);
+
+    try {
+      // ファイルをStorageにアップロード
+      const fileUrl = await uploadDocument(uri, chatId, fileName);
+
+      // Firestoreにメッセージを保存
+      await sendMessage(chatId, {
+        chatId,
+        text: `ファイル: ${fileName}`,
+        sender: user.email || "unknown",
+        type: "file",
+        metadata: {
+          url: fileUrl,
+          fileName,
+          mimeType: "application/octet-stream",
+        },
+      });
+
+      console.log("File sent successfully");
+    } catch (error) {
+      console.error("Failed to send file:", error);
+      Alert.alert("エラー", "ファイルの送信に失敗しました");
     } finally {
       setIsLoading(false);
     }
@@ -205,50 +229,15 @@ export default function ChatScreen() {
    * - 他の人のメッセージ: 左側、グレー背景
    * - システムメッセージ: 中央、薄いグレー背景
    */
-  const renderMessage = ({ item }: { item: Message }) => {
+  const renderMessage = ({ item }: { item: ExtendedMessage }) => {
     const isOwnMessage = item.sender === user?.email; // 自分のメッセージかどうか
-    const isSystemMessage = item.sender === "system@example.com"; // システムメッセージかどうか
 
-    return (
-      <View
-        style={[
-          styles.messageContainer,
-          isOwnMessage ? styles.ownMessage : styles.otherMessage,
-          isSystemMessage && styles.systemMessage,
-        ]}
-      >
-        <View
-          style={[
-            styles.messageBubble,
-            isOwnMessage ? styles.ownBubble : styles.otherBubble,
-            isSystemMessage && styles.systemBubble,
-          ]}
-        >
-          <Text
-            style={[
-              styles.messageText,
-              isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-              isSystemMessage && styles.systemMessageText,
-            ]}
-          >
-            {item.text}
-          </Text>
-          <Text
-            style={[
-              styles.messageTime,
-              isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
-              isSystemMessage && styles.systemMessageTime,
-            ]}
-          >
-            {formatMessageTime(item.timestamp)}
-          </Text>
-        </View>
-        {/* 他の人のメッセージとシステムメッセージ以外に送信者名を表示 */}
-        {!isOwnMessage && !isSystemMessage && (
-          <Text style={styles.senderName}>{item.sender}</Text>
-        )}
-      </View>
-    );
+    // 自分のメッセージでない場合、表示時に既読にする
+    if (!isOwnMessage && user && item.id) {
+      markMessageAsRead(chatId, item.id, user.email || "unknown");
+    }
+
+    return <ChatMessage message={item} isOwnMessage={isOwnMessage} />;
   };
 
   /**
@@ -311,36 +300,12 @@ export default function ChatScreen() {
         />
 
         {/* メッセージ入力エリア */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.textInput}
-            value={newMessage}
-            onChangeText={setNewMessage}
-            placeholder="メッセージを入力..."
-            placeholderTextColor="#999"
-            multiline
-            maxLength={500}
-            editable={!isLoading}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              (!newMessage.trim() || isLoading) && styles.sendButtonDisabled,
-            ]}
-            onPress={handleSendMessage}
-            disabled={!newMessage.trim() || isLoading}
-          >
-            <Text
-              style={[
-                styles.sendButtonText,
-                (!newMessage.trim() || isLoading) &&
-                  styles.sendButtonTextDisabled,
-              ]}
-            >
-              送信
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <ChatInput
+          onSendMessage={handleSendMessage}
+          onSendImage={handleSendImage}
+          onSendFile={handleSendFile}
+          disabled={isLoading}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
