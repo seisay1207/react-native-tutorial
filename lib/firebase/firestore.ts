@@ -22,6 +22,7 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
   where,
@@ -461,6 +462,93 @@ export const getChatRooms = async (userId: string): Promise<ChatRoom[]> => {
     }
 
     throw new Error(`チャットルーム一覧の取得に失敗しました: ${error.message}`);
+  }
+};
+
+/**
+ * ユーザープロフィールの作成
+ * （変更理由）：ユーザー新規作成時にプロフィールデータをFirestoreに保存する機能を追加
+ */
+export const createUserProfile = async (
+  userId: string,
+  email: string,
+  displayName: string,
+  avatar?: string,
+  status?: string
+): Promise<void> => {
+  try {
+    console.log("Creating user profile:", { userId, email, displayName });
+
+    // （変更理由）：Firestoreではundefinedの値を保存できないため、undefinedのフィールドを除外
+    const userProfileData: any = {
+      email,
+      displayName,
+      isOnline: true,
+      lastSeen: serverTimestamp() as Timestamp,
+      createdAt: serverTimestamp() as Timestamp,
+      updatedAt: serverTimestamp() as Timestamp,
+      status: status || "こんにちは！",
+    };
+
+    // avatarがundefinedでない場合のみ追加
+    if (avatar !== undefined && avatar !== null && avatar !== "") {
+      userProfileData.avatar = avatar;
+    }
+
+    // （変更理由）：特定のドキュメントIDでユーザープロフィールを保存（Firebase AuthのUIDを使用）
+    const userRef = doc(db, "users", userId);
+    await setDoc(userRef, userProfileData);
+
+    console.log("User profile created successfully:", userId);
+  } catch (error: unknown) {
+    console.error("User profile creation error:", error);
+    throw new Error("プロフィールの作成に失敗しました");
+  }
+};
+
+/**
+ * ユーザープロフィールの取得
+ * （変更理由）：特定のユーザーのプロフィール情報を取得する機能を追加
+ */
+export const getUserProfile = async (
+  userId: string
+): Promise<UserProfile | null> => {
+  try {
+    const userDoc = await getDoc(doc(db, "users", userId));
+
+    if (userDoc.exists()) {
+      return {
+        id: userDoc.id,
+        ...userDoc.data(),
+      } as UserProfile;
+    }
+
+    return null;
+  } catch (error: unknown) {
+    console.error("Get user profile error:", error);
+    throw new Error("プロフィールの取得に失敗しました");
+  }
+};
+
+/**
+ * ユーザープロフィールの更新
+ * （変更理由）：プロフィール情報を更新する機能を追加
+ */
+export const updateUserProfile = async (
+  userId: string,
+  updates: Partial<Omit<UserProfile, "id" | "createdAt">>
+): Promise<void> => {
+  try {
+    const userRef = doc(db, "users", userId);
+    await updateDoc(userRef, {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log("User profile updated successfully:", userId);
+  } catch (error: unknown) {
+    console.error("User profile update error:", error);
+    throw new Error("プロフィールの更新に失敗しました");
   }
 };
 

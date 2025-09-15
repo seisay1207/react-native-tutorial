@@ -28,6 +28,8 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [status, setStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -40,8 +42,8 @@ export default function SignUpScreen() {
     clearError();
 
     // 入力値の検証
-    if (!email || !password || !confirmPassword) {
-      setErrorMessage("すべての項目を入力してください");
+    if (!email || !password || !confirmPassword || !displayName) {
+      setErrorMessage("すべての必須項目を入力してください");
       return;
     }
 
@@ -62,11 +64,27 @@ export default function SignUpScreen() {
       return;
     }
 
+    if (displayName.length < 2) {
+      setErrorMessage("表示名は2文字以上で入力してください");
+      return;
+    }
+
     setIsLoading(true);
-    console.log("Calling signUp function with:", { email, password: "***" });
+    console.log("Calling signUp function with:", {
+      email,
+      password: "***",
+      displayName,
+      status,
+    });
 
     try {
-      const result = await signUp(email, password);
+      const result = await signUp(
+        email,
+        password,
+        displayName,
+        undefined,
+        status
+      );
       console.log("SignUp result:", {
         success: result.success,
         error: result.error,
@@ -75,15 +93,19 @@ export default function SignUpScreen() {
       if (result.success) {
         console.log("SignUp successful, navigating to main screen");
         // 成功メッセージを表示
-        Alert.alert("アカウント作成成功", "アカウントを作成しました！", [
-          {
-            text: "OK",
-            onPress: () => {
-              // メイン画面に遷移（replaceで履歴を置き換え）
-              router.replace("/(tabs)");
+        Alert.alert(
+          "アカウント作成成功",
+          "アカウントとプロフィールを作成しました！",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                // メイン画面に遷移（replaceで履歴を置き換え）
+                router.replace("/(tabs)");
+              },
             },
-          },
-        ]);
+          ]
+        );
       } else {
         console.log("SignUp failed:", result.error);
         // エラーメッセージを画面に表示
@@ -168,7 +190,27 @@ export default function SignUpScreen() {
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>メールアドレス</Text>
+              <Text style={styles.label}>
+                表示名 <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.input, errorMessage && styles.inputError]}
+                value={displayName}
+                onChangeText={(text) => {
+                  setDisplayName(text);
+                  clearError();
+                }}
+                placeholder="2文字以上で入力"
+                placeholderTextColor="#999"
+                autoCapitalize="words"
+                editable={!isLoading}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>
+                メールアドレス <Text style={styles.required}>*</Text>
+              </Text>
               <TextInput
                 style={[styles.input, errorMessage && styles.inputError]}
                 value={email}
@@ -186,7 +228,9 @@ export default function SignUpScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>パスワード</Text>
+              <Text style={styles.label}>
+                パスワード <Text style={styles.required}>*</Text>
+              </Text>
               <TextInput
                 style={[styles.input, errorMessage && styles.inputError]}
                 value={password}
@@ -203,7 +247,9 @@ export default function SignUpScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>パスワード確認</Text>
+              <Text style={styles.label}>
+                パスワード確認 <Text style={styles.required}>*</Text>
+              </Text>
               <TextInput
                 style={[styles.input, errorMessage && styles.inputError]}
                 value={confirmPassword}
@@ -216,6 +262,24 @@ export default function SignUpScreen() {
                 secureTextEntry
                 autoCapitalize="none"
                 editable={!isLoading}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>ステータスメッセージ</Text>
+              <TextInput
+                style={[styles.input, errorMessage && styles.inputError]}
+                value={status}
+                onChangeText={(text) => {
+                  setStatus(text);
+                  clearError();
+                }}
+                placeholder="こんにちは！"
+                placeholderTextColor="#999"
+                autoCapitalize="sentences"
+                editable={!isLoading}
+                multiline
+                numberOfLines={2}
               />
             </View>
 
@@ -363,5 +427,9 @@ const styles = StyleSheet.create({
     color: "#007AFF",
     fontSize: 16,
     fontWeight: "600",
+  },
+  required: {
+    color: "#FF6B6B",
+    fontSize: 14,
   },
 });

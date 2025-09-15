@@ -11,7 +11,8 @@
  */
 
 import { subscribeToAuthChanges } from "@/lib/firebase/auth";
-import { getChatRooms } from "@/lib/firebase/firestore";
+import { getChatRooms, getUserProfile } from "@/lib/firebase/firestore";
+import { UserProfile } from "@/lib/firebase/models";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { User } from "firebase/auth";
@@ -23,6 +24,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
  */
 interface AuthContextType {
   user: User | null; // 現在のユーザー（null = 未ログイン）
+  userProfile: UserProfile | null; // ユーザープロフィール情報
   isLoading: boolean; // 認証状態の読み込み中フラグ
   getChatRoomInfo: (
     chatId: string
@@ -50,6 +52,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 認証状態の管理
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   /**
@@ -68,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log("AuthContext: Setting up auth listener");
 
     // Firebaseの認証状態リスナーを設定
-    const unsubscribe = subscribeToAuthChanges((user) => {
+    const unsubscribe = subscribeToAuthChanges(async (user) => {
       console.log("AuthContext: Auth state changed", {
         user: user?.email,
         userId: user?.uid,
@@ -77,6 +80,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 認証状態を更新
       setUser(user);
+
+      // ユーザープロフィール情報を取得
+      if (user) {
+        try {
+          const profile = await getUserProfile(user.uid);
+          setUserProfile(profile);
+          console.log("AuthContext: User profile loaded", profile?.displayName);
+        } catch (error) {
+          console.error("AuthContext: Failed to load user profile", error);
+          setUserProfile(null);
+        }
+      } else {
+        setUserProfile(null);
+      }
+
       setIsLoading(false); // 初期読み込み完了
 
       // ログイン状態をAsyncStorageに保存
@@ -151,6 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     user,
+    userProfile,
     isLoading,
     getChatRoomInfo,
   };
@@ -159,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   console.log("AuthContext: Current state", {
     user: user?.email,
     userId: user?.uid,
+    userProfile: userProfile?.displayName,
     isLoading,
   });
 

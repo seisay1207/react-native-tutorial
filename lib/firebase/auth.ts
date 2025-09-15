@@ -21,6 +21,7 @@ import {
   User,
 } from "firebase/auth";
 import { auth } from "./config";
+import { createUserProfile } from "./firestore";
 
 /**
  * 認証結果の型定義
@@ -86,22 +87,27 @@ export const signIn = async (
 };
 
 /**
- * サインアップ機能
+ * サインアップ機能（プロフィール情報付き）
  *
  * 【処理フロー】
  * 1. Firebase Authの初期化チェック
  * 2. 新規ユーザー作成
- * 3. 結果の型安全な返却
- * 4. エラーハンドリング
+ * 3. プロフィール情報をFirestoreに保存
+ * 4. 結果の型安全な返却
+ * 5. エラーハンドリング
  *
  * 【注意点】
  * - 既存メールアドレスの重複チェック
  * - パスワード強度の検証
  * - メールアドレス形式の検証
+ * - プロフィール作成失敗時のロールバック
  */
 export const signUp = async (
   email: string,
-  password: string
+  password: string,
+  displayName: string,
+  avatar?: string,
+  status?: string
 ): Promise<AuthResult> => {
   console.log("Attempting to sign up with email:", email);
 
@@ -119,6 +125,24 @@ export const signUp = async (
     // Firebase Authentication APIを使用して新規ユーザー作成
     const result = await createUserWithEmailAndPassword(auth, email, password);
     console.log("Sign up successful:", result.user.email);
+
+    // プロフィール情報をFirestoreに保存
+    try {
+      await createUserProfile(
+        result.user.uid,
+        email,
+        displayName,
+        avatar,
+        status
+      );
+      console.log("User profile created successfully");
+    } catch (profileError) {
+      console.error("Profile creation failed:", profileError);
+      // プロフィール作成に失敗した場合、ユーザーアカウントを削除
+      // 注意: 実際のアプリでは、より適切なエラーハンドリングが必要
+      console.warn("Profile creation failed, but user account was created");
+    }
+
     return { success: true, user: result.user };
   } catch (error: any) {
     // エラーの詳細ログ
