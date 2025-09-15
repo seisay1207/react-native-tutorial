@@ -12,6 +12,7 @@
 
 import { AuthProvider } from "@/lib/contexts/AuthContext";
 import { Stack } from "expo-router";
+import Toast from "react-native-toast-message";
 
 /**
  * AppContent コンポーネント
@@ -73,6 +74,8 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <AppContent />
+      {/* （変更理由）：アプリ全体でトースターメッセージを使用できるようToastProviderを追加 */}
+      <Toast />
     </AuthProvider>
   );
 }

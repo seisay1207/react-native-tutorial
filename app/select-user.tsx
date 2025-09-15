@@ -26,6 +26,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Toast from "react-native-toast-message";
 import { useFriends } from "../hooks/useFriends";
 
 export default function SelectUserScreen() {
@@ -93,16 +94,28 @@ export default function SelectUserScreen() {
       try {
         setIsSendingRequest(true);
         await sendRequest(selectedUser.id);
-        Alert.alert("成功", "友達リクエストを送信しました");
+        // （変更理由）：Alert.alertをToastメッセージに置き換えて、より良いユーザーエクスペリエンスを提供
+        Toast.show({
+          type: "success",
+          text1: "友達リクエストを送信しました",
+          text2: "リクエストが正常に送信されました",
+          position: "top",
+          visibilityTime: 3000,
+        });
         router.back();
       } catch (error) {
         console.error("Failed to send friend request:", error);
-        Alert.alert(
-          "エラー",
-          error instanceof Error
-            ? error.message
-            : "友達リクエストの送信に失敗しました"
-        );
+        // （変更理由）：エラー時もToastメッセージを使用して一貫性を保つ
+        Toast.show({
+          type: "error",
+          text1: "エラー",
+          text2:
+            error instanceof Error
+              ? error.message
+              : "友達リクエストの送信に失敗しました",
+          position: "top",
+          visibilityTime: 4000,
+        });
       } finally {
         setIsSendingRequest(false);
       }
