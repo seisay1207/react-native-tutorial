@@ -47,7 +47,18 @@ service cloud.firestore {
 
     // 友達関係のルール
     match /friendships/{friendshipId} {
-      allow read, write: if request.auth != null && 
+      // 読み取りは関係者（user1またはuser2）のみ
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.user1 || 
+         request.auth.uid == resource.data.user2);
+      
+      // 新規作成は友達リクエストの受信者が可能
+      allow create: if request.auth != null && 
+        (request.auth.uid == request.resource.data.user1 || 
+         request.auth.uid == request.resource.data.user2);
+      
+      // 更新・削除は関係者のみ
+      allow update, delete: if request.auth != null && 
         (request.auth.uid == resource.data.user1 || 
          request.auth.uid == resource.data.user2);
     }

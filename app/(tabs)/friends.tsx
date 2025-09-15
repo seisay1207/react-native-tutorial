@@ -13,11 +13,12 @@
 
 import Avatar from "@/components/ui/Avatar";
 import Button from "@/components/ui/Button";
+import FriendRequestNotification from "@/components/ui/FriendRequestNotification";
 import { useFriends } from "@/hooks/useFriends";
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { UserProfile } from "@/lib/firebase/models";
+import { FriendRequest, UserProfile } from "@/lib/firebase/models";
 import { useRouter } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,6 +30,11 @@ import {
   Text,
   View,
 } from "react-native";
+
+// 【変更理由】：送信者情報を含む友達リクエストの型定義
+type FriendRequestWithSender = FriendRequest & {
+  senderProfile: UserProfile | null;
+};
 
 /**
  * FriendsScreen コンポーネント
@@ -43,7 +49,7 @@ export default function FriendsScreen() {
   const { user } = useAuth();
   const {
     friends,
-    receivedRequests,
+    receivedRequestsWithSender,
     loading,
     error,
     acceptRequest,
@@ -52,11 +58,35 @@ export default function FriendsScreen() {
     refresh,
   } = useFriends();
 
+  // 【変更理由】：通知ボックスの表示状態を管理するためのstateを追加
+  const [showNotification, setShowNotification] = useState(true);
+
+  // 【変更理由】：通知ボックスのタップ処理を追加
+  const handleNotificationPress = useCallback(() => {
+    // 通知ボックスをタップした時は、友達リクエストセクションにスクロール
+    // または詳細表示を行う（現在は単純に通知を閉じる）
+    setShowNotification(false);
+  }, []);
+
+  // 【変更理由】：通知ボックスを閉じる処理を追加
+  const handleNotificationDismiss = useCallback(() => {
+    setShowNotification(false);
+  }, []);
+
+  // 【変更理由】：新しい友達リクエストが来た時に通知ボックスを再表示
+  useEffect(() => {
+    if (receivedRequestsWithSender.length > 0) {
+      setShowNotification(true);
+    }
+  }, [receivedRequestsWithSender.length]);
+
   // 友達リクエストの承認
   const handleAcceptRequest = useCallback(
     async (requestId: string) => {
       try {
         await acceptRequest(requestId);
+        // 【変更理由】：承認後に通知ボックスを非表示にして詳細表示も非表示にする
+        setShowNotification(false);
         Alert.alert("成功", "友達リクエストを承認しました");
       } catch (err) {
         Alert.alert(
@@ -75,6 +105,8 @@ export default function FriendsScreen() {
     async (requestId: string) => {
       try {
         await rejectRequest(requestId);
+        // 【変更理由】：拒否後に通知ボックスを非表示にして詳細表示も非表示にする
+        setShowNotification(false);
         Alert.alert("成功", "友達リクエストを拒否しました");
       } catch (err) {
         Alert.alert(
@@ -130,13 +162,36 @@ export default function FriendsScreen() {
     [removeFriendship]
   );
 
-  // 友達リクエストのレンダリング
+  // 【変更理由】：送信者情報を含む友達リクエストのレンダリング
   const renderRequest = useCallback(
-    ({ item: request }: { item: { id: string; message?: string } }) => (
+    ({ item: request }: { item: FriendRequestWithSender }) => (
       <View style={styles.requestItem}>
-        <Text style={styles.requestText}>
-          {request.message || "友達になりたいです！"}
-        </Text>
+        {/* 【変更理由】：送信者のアバターと名前を表示 */}
+        <View style={styles.requestHeader}>
+          <Avatar
+            uri={request.senderProfile?.avatar}
+            name={request.senderProfile?.displayName || "Unknown"}
+            size={50}
+            style={styles.requestAvatar}
+          />
+          <View style={styles.requestSenderInfo}>
+            <Text style={styles.requestSenderName}>
+              {request.senderProfile?.displayName || "Unknown"}
+            </Text>
+            <Text style={styles.requestSenderEmail}>
+              {request.senderProfile?.email || ""}
+            </Text>
+          </View>
+        </View>
+
+        {/* 【変更理由】：リクエストメッセージを表示 */}
+        <View style={styles.requestMessageContainer}>
+          <Text style={styles.requestText}>
+            {request.message || "友達になりたいです！"}
+          </Text>
+        </View>
+
+        {/* 【変更理由】：承認・拒否ボタン */}
         <View style={styles.requestButtons}>
           <Button
             onPress={() => handleAcceptRequest(request.id)}
@@ -259,11 +314,31 @@ export default function FriendsScreen() {
           ListHeaderComponent={
             <>
               {renderUserProfile()}
-              {receivedRequests.length > 0 && (
+              {/* 【変更理由】：友達リクエストの表示を通知ボックスに変更（送信者情報を含む） */}
+              {receivedRequestsWithSender.length > 0 && showNotification && (
+                <FriendRequestNotification
+                  requests={receivedRequestsWithSender}
+                  onPress={handleNotificationPress}
+                  onDismiss={handleNotificationDismiss}
+                  animated={true}
+                />
+              )}
+              {/* 【変更理由】：通知ボックスが閉じられた後も友達リクエストを表示（送信者情報付き） */}
+              {receivedRequestsWithSender.length > 0 && !showNotification && (
                 <View style={styles.requestsContainer}>
-                  <Text style={styles.sectionTitle}>友達リクエスト</Text>
+                  <View style={styles.requestsHeader}>
+                    <Text style={styles.sectionTitle}>友達リクエスト</Text>
+                    {/* 【変更理由】：通知ボックス状態に戻るボタンを追加 */}
+                    <Button
+                      onPress={() => setShowNotification(true)}
+                      style={styles.backToNotificationButton}
+                      textStyle={styles.backToNotificationButtonText}
+                    >
+                      閉じる
+                    </Button>
+                  </View>
                   <FlatList
-                    data={receivedRequests}
+                    data={receivedRequestsWithSender}
                     renderItem={renderRequest}
                     keyExtractor={(item) => item.id}
                     scrollEnabled={false}
@@ -383,17 +458,59 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     width: "100%",
   },
+  requestsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 12,
     color: "#1a1a1a",
+    flex: 1,
+  },
+  backToNotificationButton: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  backToNotificationButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
   },
   requestItem: {
     backgroundColor: "#f8f9fa",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+  },
+  requestHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  requestAvatar: {
+    marginRight: 12,
+  },
+  requestSenderInfo: {
+    flex: 1,
+  },
+  requestSenderName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    marginBottom: 2,
+  },
+  requestSenderEmail: {
+    fontSize: 12,
+    color: "#666",
+  },
+  requestMessageContainer: {
+    marginBottom: 12,
+    paddingLeft: 62, // アバターの幅 + マージン分
   },
   requestText: {
     fontSize: 14,

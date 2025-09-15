@@ -230,6 +230,89 @@ export const getReceivedFriendRequests = async (
 };
 
 /**
+ * 送信者情報を含む受信した友達リクエストの取得
+ * （変更理由）：通知ボックスで送信者の名前とアバターを表示するため
+ */
+export const getReceivedFriendRequestsWithSenderInfo = async (
+  userId: string
+): Promise<(FriendRequest & { senderProfile: UserProfile | null })[]> => {
+  try {
+    const q = query(
+      collection(db, "friendRequests"),
+      where("toUser", "==", userId),
+      where("status", "==", "pending"),
+      orderBy("createdAt", "desc")
+    );
+
+    const snapshot = await getDocs(q);
+    const requests = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as FriendRequest[];
+
+    // 各リクエストの送信者情報を取得
+    const requestsWithSenderInfo = await Promise.all(
+      requests.map(async (request) => {
+        try {
+          const senderProfile = await getUserProfile(request.fromUser);
+          return {
+            ...request,
+            senderProfile,
+          };
+        } catch (error) {
+          console.error("Failed to get sender profile:", error);
+          return {
+            ...request,
+            senderProfile: null,
+          };
+        }
+      })
+    );
+
+    return requestsWithSenderInfo;
+  } catch (error: unknown) {
+    console.error(
+      "Get received friend requests with sender info error:",
+      error
+    );
+    throw new Error("受信した友達リクエストの取得に失敗しました");
+  }
+};
+
+/**
+ * 送信済み友達リクエストの取得
+ * （変更理由）：select-user画面で送信済みユーザーを除外するため
+ */
+export const getSentFriendRequests = async (
+  userId: string
+): Promise<FriendRequest[]> => {
+  try {
+    // 【変更理由】：インデックスを必要としないシンプルなクエリに変更
+    const q = query(
+      collection(db, "friendRequests"),
+      where("fromUser", "==", userId),
+      where("status", "==", "pending")
+    );
+
+    const snapshot = await getDocs(q);
+    const requests = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as FriendRequest[];
+
+    // 【変更理由】：クライアント側でソート（createdAtの降順）
+    return requests.sort((a, b) => {
+      const aTime = a.createdAt?.toMillis() || 0;
+      const bTime = b.createdAt?.toMillis() || 0;
+      return bTime - aTime;
+    });
+  } catch (error: unknown) {
+    console.error("Get sent friend requests error:", error);
+    throw new Error("送信した友達リクエストの取得に失敗しました");
+  }
+};
+
+/**
  * 友達関係の削除
  */
 export const removeFriend = async (
@@ -553,17 +636,25 @@ export const updateUserProfile = async (
 };
 
 /**
- * ユーザー一覧の取得
+ * ユーザー一覧の取得（友達関係を除外）
+ * （変更理由）：友達を追加画面で既存の友達を除外するため
  */
 export const getAllUsers = async (
   currentUserId: string
 ): Promise<UserProfile[]> => {
   try {
-    const q = query(collection(db, "users"), orderBy("displayName"));
+    // 【変更理由】：ユーザー一覧と友達関係を並行して取得
+    const [usersSnapshot, friendsSnapshot] = await Promise.all([
+      getDocs(query(collection(db, "users"), orderBy("displayName"))),
+      getFriends(currentUserId), // 既存のgetFriends関数を使用
+    ]);
 
-    const snapshot = await getDocs(q);
-    return snapshot.docs
-      .filter((doc) => doc.id !== currentUserId) // 現在のユーザーを除外
+    // 友達のIDをSetに変換
+    const friendIds = new Set(friendsSnapshot.map((friend) => friend.id));
+
+    // 現在のユーザーと友達を除外
+    return usersSnapshot.docs
+      .filter((doc) => doc.id !== currentUserId && !friendIds.has(doc.id))
       .map((doc) => ({
         id: doc.id,
         ...doc.data(),

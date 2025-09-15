@@ -16,16 +16,25 @@ import {
   acceptFriendRequest,
   getFriends,
   getReceivedFriendRequests,
+  getReceivedFriendRequestsWithSenderInfo,
   rejectFriendRequest,
   removeFriend,
   sendFriendRequest,
 } from "../lib/firebase/firestore";
 import { FriendRequest, UserProfile } from "../lib/firebase/models";
 
+// 【変更理由】：送信者情報を含む友達リクエストの型定義を追加
+type FriendRequestWithSender = FriendRequest & {
+  senderProfile: UserProfile | null;
+};
+
 export const useFriends = () => {
   const { user } = useAuth();
   const [friends, setFriends] = useState<UserProfile[]>([]);
   const [receivedRequests, setReceivedRequests] = useState<FriendRequest[]>([]);
+  const [receivedRequestsWithSender, setReceivedRequestsWithSender] = useState<
+    FriendRequestWithSender[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +71,22 @@ export const useFriends = () => {
     }
   }, [user]);
 
+  // 【変更理由】：送信者情報を含む受信した友達リクエストを取得
+  const loadReceivedRequestsWithSender = useCallback(async () => {
+    if (!user) return;
+    try {
+      const requests = await getReceivedFriendRequestsWithSenderInfo(user.uid);
+      setReceivedRequestsWithSender(requests);
+      setError(null);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "受信した友達リクエストの取得に失敗しました"
+      );
+    }
+  }, [user]);
+
   // 友達リクエストを送信
   const sendRequest = useCallback(
     async (toUserId: string, message?: string) => {
@@ -86,7 +111,12 @@ export const useFriends = () => {
     async (requestId: string) => {
       try {
         await acceptFriendRequest(requestId);
-        await Promise.all([loadFriends(), loadReceivedRequests()]);
+        // 【変更理由】：送信者情報付きのリクエストリストも更新
+        await Promise.all([
+          loadFriends(),
+          loadReceivedRequests(),
+          loadReceivedRequestsWithSender(),
+        ]);
         setError(null);
       } catch (err) {
         setError(
@@ -97,7 +127,7 @@ export const useFriends = () => {
         throw err;
       }
     },
-    [loadFriends, loadReceivedRequests]
+    [loadFriends, loadReceivedRequests, loadReceivedRequestsWithSender]
   );
 
   // 友達リクエストを拒否
@@ -105,7 +135,11 @@ export const useFriends = () => {
     async (requestId: string) => {
       try {
         await rejectFriendRequest(requestId);
-        await loadReceivedRequests();
+        // 【変更理由】：送信者情報付きのリクエストリストも更新
+        await Promise.all([
+          loadReceivedRequests(),
+          loadReceivedRequestsWithSender(),
+        ]);
         setError(null);
       } catch (err) {
         setError(
@@ -116,7 +150,7 @@ export const useFriends = () => {
         throw err;
       }
     },
-    [loadReceivedRequests]
+    [loadReceivedRequests, loadReceivedRequestsWithSender]
   );
 
   // 初期データの読み込み
@@ -124,8 +158,9 @@ export const useFriends = () => {
     if (user) {
       loadFriends();
       loadReceivedRequests();
+      loadReceivedRequestsWithSender();
     }
-  }, [user, loadFriends, loadReceivedRequests]);
+  }, [user, loadFriends, loadReceivedRequests, loadReceivedRequestsWithSender]);
 
   // 友達を削除
   const removeFriendship = useCallback(
@@ -148,6 +183,7 @@ export const useFriends = () => {
   return {
     friends,
     receivedRequests,
+    receivedRequestsWithSender,
     loading,
     error,
     sendRequest,
@@ -155,7 +191,11 @@ export const useFriends = () => {
     rejectRequest,
     removeFriendship,
     refresh: useCallback(async () => {
-      await Promise.all([loadFriends(), loadReceivedRequests()]);
-    }, [loadFriends, loadReceivedRequests]),
+      await Promise.all([
+        loadFriends(),
+        loadReceivedRequests(),
+        loadReceivedRequestsWithSender(),
+      ]);
+    }, [loadFriends, loadReceivedRequests, loadReceivedRequestsWithSender]),
   };
 };

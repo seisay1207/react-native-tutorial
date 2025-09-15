@@ -11,7 +11,11 @@
 
 import Avatar from "@/components/ui/Avatar";
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { createDirectChat, getAllUsers } from "@/lib/firebase/firestore";
+import {
+  createDirectChat,
+  getAllUsers,
+  getSentFriendRequests,
+} from "@/lib/firebase/firestore";
 import { UserProfile } from "@/lib/firebase/models";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -39,6 +43,10 @@ export default function SelectUserScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [isSendingRequest, setIsSendingRequest] = useState(false);
+  // 【変更理由】：送信済みリクエストのユーザーIDを管理
+  const [sentRequestUserIds, setSentRequestUserIds] = useState<Set<string>>(
+    new Set()
+  );
 
   // ユーザー一覧の取得
   useEffect(() => {
@@ -47,9 +55,26 @@ export default function SelectUserScreen() {
 
       try {
         setIsLoading(true);
-        const fetchedUsers = await getAllUsers(user.uid);
-        setUsers(fetchedUsers);
-        setFilteredUsers(fetchedUsers);
+
+        // 【変更理由】：ユーザー一覧と送信済みリクエストを並行して取得
+        const [fetchedUsers, sentRequests] = await Promise.all([
+          getAllUsers(user.uid),
+          getSentFriendRequests(user.uid),
+        ]);
+
+        // 送信済みリクエストのユーザーIDをSetに変換
+        const sentUserIds = new Set(
+          sentRequests.map((request) => request.toUser)
+        );
+        setSentRequestUserIds(sentUserIds);
+
+        // 【変更理由】：送信済みリクエストのユーザーを除外
+        const availableUsers = fetchedUsers.filter(
+          (user) => !sentUserIds.has(user.id)
+        );
+
+        setUsers(availableUsers);
+        setFilteredUsers(availableUsers);
       } catch (error) {
         console.error("Failed to fetch users:", error);
         Alert.alert("エラー", "ユーザー一覧の取得に失敗しました");
@@ -94,6 +119,19 @@ export default function SelectUserScreen() {
       try {
         setIsSendingRequest(true);
         await sendRequest(selectedUser.id);
+
+        // 【変更理由】：送信済みユーザーIDを追加してユーザー一覧から除外
+        const newSentUserIds = new Set(sentRequestUserIds);
+        newSentUserIds.add(selectedUser.id);
+        setSentRequestUserIds(newSentUserIds);
+
+        // ユーザー一覧から送信済みユーザーを除外
+        const updatedUsers = users.filter(
+          (user) => user.id !== selectedUser.id
+        );
+        setUsers(updatedUsers);
+        setFilteredUsers(updatedUsers);
+
         // （変更理由）：Alert.alertをToastメッセージに置き換えて、より良いユーザーエクスペリエンスを提供
         Toast.show({
           type: "success",
