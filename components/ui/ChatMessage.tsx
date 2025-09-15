@@ -16,7 +16,7 @@ import { ja } from "date-fns/locale";
 import { Image } from "expo-image";
 import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Avatar } from "./Avatar";
+import Avatar from "./Avatar";
 
 interface ChatMessageProps {
   message: ExtendedMessage;
@@ -26,85 +26,116 @@ interface ChatMessageProps {
 
 export const ChatMessage = memo(
   ({ message, isOwnMessage, showAvatar = true }: ChatMessageProps) => {
-    // メッセージの送信時刻をフォーマット
-    const formattedTime = message.timestamp
-      ? format(message.timestamp.toDate(), "HH:mm", {
-          locale: ja,
-        })
-      : "";
+    // （変更理由）：timestampがundefinedの場合のエラーハンドリングを追加
+    const formattedTime =
+      message.timestamp && typeof message.timestamp.toDate === "function"
+        ? format(message.timestamp.toDate(), "HH:mm", {
+            locale: ja,
+          })
+        : "";
 
     return (
-      <View
-        style={[
-          styles.container,
-          isOwnMessage
-            ? styles.ownMessageContainer
-            : styles.otherMessageContainer,
-        ]}
-      >
-        {/* アバター（自分のメッセージ以外で表示） */}
-        {!isOwnMessage && showAvatar && (
-          <View style={styles.avatarContainer}>
-            <Avatar userId={message.sender} size={32} />
+      <View style={styles.wrapper}>
+        {/* 左側のメッセージ（相手） */}
+        {!isOwnMessage && (
+          <View style={styles.leftSide}>
+            {showAvatar && (
+              <View style={styles.avatarContainer}>
+                <Avatar
+                  name={message.senderDisplayName || message.sender}
+                  size={32}
+                  backgroundColor="#E9E9EB"
+                  textColor="#666666"
+                />
+              </View>
+            )}
+            <View style={[styles.messageContent, styles.otherMessage]}>
+              {/* メッセージの種類に応じて表示を切り替え */}
+              {message.type === "text" && (
+                <Text style={[styles.messageText, styles.otherMessageText]}>
+                  {message.text}
+                </Text>
+              )}
+
+              {message.type === "image" && message.metadata?.url && (
+                <Image
+                  source={{ uri: message.metadata.url }}
+                  style={styles.messageImage}
+                  contentFit="cover"
+                />
+              )}
+
+              {message.type === "file" && (
+                <View style={[styles.fileContainer, styles.otherFileContainer]}>
+                  <Text style={[styles.fileName, styles.otherFileName]}>
+                    {message.metadata?.fileName || "ファイル"}
+                  </Text>
+                  {message.metadata?.fileSize && (
+                    <Text style={[styles.fileSize, styles.otherFileSize]}>
+                      {formatFileSize(message.metadata.fileSize)}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* タイムスタンプと既読表示 */}
+              <View style={styles.messageFooter}>
+                <Text style={[styles.timestamp, styles.otherTimestamp]}>
+                  {formattedTime}
+                </Text>
+              </View>
+            </View>
           </View>
         )}
 
-        <View
-          style={[
-            styles.messageContent,
-            isOwnMessage ? styles.ownMessage : styles.otherMessage,
-          ]}
-        >
-          {/* メッセージの種類に応じて表示を切り替え */}
-          {message.type === "text" && (
-            <Text style={styles.messageText}>{message.text}</Text>
-          )}
-
-          {message.type === "image" && message.metadata?.url && (
-            <Image
-              source={{ uri: message.metadata.url }}
-              style={styles.messageImage}
-              contentFit="cover"
-            />
-          )}
-
-          {message.type === "file" && (
-            <View style={styles.fileContainer}>
-              <Text style={styles.fileName}>
-                {message.metadata?.fileName || "ファイル"}
-              </Text>
-              {message.metadata?.fileSize && (
-                <Text style={styles.fileSize}>
-                  {formatFileSize(message.metadata.fileSize)}
+        {/* 右側のメッセージ（自分） */}
+        {isOwnMessage && (
+          <View style={styles.rightSide}>
+            <View style={[styles.messageContent, styles.ownMessage]}>
+              {/* メッセージの種類に応じて表示を切り替え */}
+              {message.type === "text" && (
+                <Text style={[styles.messageText, styles.ownMessageText]}>
+                  {message.text}
                 </Text>
               )}
-            </View>
-          )}
 
-          {/* タイムスタンプと既読表示 */}
-          <View style={styles.messageFooter}>
-            {isOwnMessage && message.readBy && (
-              <Text
-                style={[
-                  styles.readStatus,
-                  isOwnMessage ? styles.ownReadStatus : styles.otherReadStatus,
-                ]}
-              >
-                {message.readBy.length > 0
-                  ? `既読 ${message.readBy.length}`
-                  : "未読"}
-              </Text>
-            )}
-            <Text
-              style={[
-                styles.timestamp,
-                isOwnMessage ? styles.ownTimestamp : styles.otherTimestamp,
-              ]}
-            >
-              {formattedTime}
-            </Text>
+              {message.type === "image" && message.metadata?.url && (
+                <Image
+                  source={{ uri: message.metadata.url }}
+                  style={styles.messageImage}
+                  contentFit="cover"
+                />
+              )}
+
+              {message.type === "file" && (
+                <View style={[styles.fileContainer, styles.ownFileContainer]}>
+                  <Text style={[styles.fileName, styles.ownFileName]}>
+                    {message.metadata?.fileName || "ファイル"}
+                  </Text>
+                  {message.metadata?.fileSize && (
+                    <Text style={[styles.fileSize, styles.ownFileSize]}>
+                      {formatFileSize(message.metadata.fileSize)}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* タイムスタンプと既読表示 */}
+              <View style={styles.messageFooter}>
+                {message.readBy && (
+                  <Text style={[styles.readStatus, styles.ownReadStatus]}>
+                    {message.readBy.length > 0
+                      ? `既読 ${message.readBy.length}`
+                      : "未読"}
+                  </Text>
+                )}
+                <Text style={[styles.timestamp, styles.ownTimestamp]}>
+                  {formattedTime}
+                </Text>
+              </View>
+            </View>
           </View>
-        </View>
+        )}
       </View>
     );
   }
@@ -120,24 +151,40 @@ const formatFileSize = (bytes: number): string => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
+  wrapper: {
+    width: "100%",
     marginVertical: 4,
     paddingHorizontal: 16,
   },
-  ownMessageContainer: {
-    justifyContent: "flex-end",
-  },
-  otherMessageContainer: {
+  leftSide: {
+    flexDirection: "row",
     justifyContent: "flex-start",
+    alignItems: "flex-end",
+    width: "100%",
+  },
+  rightSide: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "flex-end",
+    width: "100%",
   },
   avatarContainer: {
     marginRight: 8,
+    marginBottom: 4,
   },
   messageContent: {
-    maxWidth: "70%",
-    borderRadius: 16,
-    padding: 12,
+    maxWidth: "75%",
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   ownMessage: {
     backgroundColor: "#007AFF",
@@ -150,7 +197,12 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 16,
     lineHeight: 20,
-    color: "#000000",
+  },
+  ownMessageText: {
+    color: "#FFFFFF", // 自分のメッセージは白文字
+  },
+  otherMessageText: {
+    color: "#000000", // 相手のメッセージは黒文字
   },
   messageImage: {
     width: "100%",
@@ -158,19 +210,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   fileContainer: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 8,
     padding: 8,
+  },
+  ownFileContainer: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)", // 自分のメッセージ内のファイルコンテナ
+  },
+  otherFileContainer: {
+    backgroundColor: "#FFFFFF", // 相手のメッセージ内のファイルコンテナ
   },
   fileName: {
     fontSize: 14,
     fontWeight: "500",
+  },
+  ownFileName: {
+    color: "#FFFFFF",
+  },
+  otherFileName: {
     color: "#000000",
   },
   fileSize: {
     fontSize: 12,
-    color: "#666666",
     marginTop: 4,
+  },
+  ownFileSize: {
+    color: "rgba(255, 255, 255, 0.8)",
+  },
+  otherFileSize: {
+    color: "#666666",
   },
   messageFooter: {
     flexDirection: "row",

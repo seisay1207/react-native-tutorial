@@ -80,6 +80,7 @@ export interface ExtendedMessage {
   chatId: string; // チャットルームID
   text: string; // メッセージ内容
   sender: string; // 送信者のユーザーID
+  senderDisplayName?: string; // 送信者の表示名（オプション）
   timestamp?: Timestamp; // 送信時刻
   type: "text" | "image" | "file" | "system"; // メッセージタイプ
   editedAt?: Timestamp; // 編集時刻（編集された場合）

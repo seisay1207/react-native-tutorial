@@ -28,7 +28,7 @@ interface AuthContextType {
   isLoading: boolean; // 認証状態の読み込み中フラグ
   getChatRoomInfo: (
     chatId: string
-  ) => Promise<{ title: string; type: string } | null>; // チャットルーム情報を取得する関数
+  ) => Promise<{ title: string; type: string; participants?: string[] } | null>; // チャットルーム情報を取得する関数
 }
 
 /**
@@ -147,12 +147,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const currentRoom = rooms.find((room) => room.id === chatId);
 
       if (currentRoom) {
+        // （変更理由）：個別チャットの場合は相手の名前を取得
+        if (currentRoom.type === "direct") {
+          const otherParticipantId = currentRoom.participants.find(
+            (id) => id !== user.uid
+          );
+          if (otherParticipantId) {
+            try {
+              const friendProfile = await getUserProfile(otherParticipantId);
+              return {
+                title: friendProfile?.displayName || "個別チャット",
+                type: currentRoom.type,
+                participants: currentRoom.participants,
+              };
+            } catch (error) {
+              console.error("相手の情報取得に失敗:", error);
+              return {
+                title: "個別チャット",
+                type: currentRoom.type,
+                participants: currentRoom.participants,
+              };
+            }
+          }
+        }
+
         return {
           title:
             currentRoom.type === "group" && currentRoom.name
               ? currentRoom.name
               : "個別チャット",
           type: currentRoom.type,
+          participants: currentRoom.participants,
         };
       } else if (chatId === "general") {
         return {

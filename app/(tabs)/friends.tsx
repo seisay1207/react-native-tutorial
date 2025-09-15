@@ -16,6 +16,7 @@ import Button from "@/components/ui/Button";
 import FriendRequestNotification from "@/components/ui/FriendRequestNotification";
 import { useFriends } from "@/hooks/useFriends";
 import { useAuth } from "@/lib/contexts/AuthContext";
+import { createOrGetDirectChatRoom } from "@/lib/firebase/firestore";
 import { FriendRequest, UserProfile } from "@/lib/firebase/models";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -122,10 +123,27 @@ export default function FriendsScreen() {
 
   // チャットを開始
   const startChat = useCallback(
-    (friend: UserProfile) => {
-      router.push(`/chat?userId=${friend.id}`);
+    async (friend: UserProfile) => {
+      if (!user) {
+        Alert.alert("エラー", "ログインが必要です");
+        return;
+      }
+
+      try {
+        // （変更理由）：友達とのチャットルームを作成または取得してからチャット画面に遷移
+        const chatRoomId = await createOrGetDirectChatRoom(user.uid, friend.id);
+        router.push(`/chat?chatId=${chatRoomId}`);
+      } catch (error) {
+        console.error("チャット開始エラー:", error);
+        Alert.alert(
+          "エラー",
+          error instanceof Error
+            ? error.message
+            : "チャットの開始に失敗しました"
+        );
+      }
     },
-    [router]
+    [router, user]
   );
 
   // 友達を削除

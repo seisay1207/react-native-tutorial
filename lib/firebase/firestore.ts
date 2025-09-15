@@ -691,3 +691,115 @@ export const getAllUsers = async (
     throw new Error("ユーザー一覧の取得に失敗しました");
   }
 };
+
+/**
+ * 友達とのチャットルームを作成または取得する
+ * （変更理由）：友達とのチャットルーム作成・管理機能の実装
+ *
+ * @param currentUserId - 現在のユーザーID
+ * @param friendId - 友達のユーザーID
+ * @returns チャットルームID
+ */
+export const createOrGetDirectChatRoom = async (
+  currentUserId: string,
+  friendId: string
+): Promise<string> => {
+  try {
+    // 既存のチャットルームをチェック
+    const existingChatRoom = await getExistingDirectChatRoom(
+      currentUserId,
+      friendId
+    );
+    if (existingChatRoom) {
+      console.log("既存のチャットルームが見つかりました:", existingChatRoom.id);
+      return existingChatRoom.id!;
+    }
+
+    // 新しいチャットルームを作成
+    console.log("新しいチャットルームを作成します:", {
+      currentUserId,
+      friendId,
+    });
+    const chatRoomId = await createDirectChat(currentUserId, friendId);
+    console.log("チャットルームが作成されました:", chatRoomId);
+
+    return chatRoomId;
+  } catch (error: unknown) {
+    console.error("チャットルーム作成・取得エラー:", error);
+    throw error instanceof Error
+      ? error
+      : new Error("チャットルームの作成・取得に失敗しました");
+  }
+};
+
+/**
+ * 既存の個別チャットルームを取得する
+ * （変更理由）：友達との既存チャットルームを検索する機能
+ *
+ * @param user1Id - ユーザー1のID
+ * @param user2Id - ユーザー2のID
+ * @returns 既存のチャットルームまたはnull
+ */
+export const getExistingDirectChatRoom = async (
+  user1Id: string,
+  user2Id: string
+): Promise<ChatRoom | null> => {
+  try {
+    // 両方のユーザーが参加している個別チャットルームを検索
+    const q = query(
+      collection(db, "chatRooms"),
+      where("type", "==", "direct"),
+      where("participants", "array-contains", user1Id),
+      where("isActive", "==", true)
+    );
+
+    const snapshot = await getDocs(q);
+
+    // 両方のユーザーが参加しているチャットルームを探す
+    for (const docSnapshot of snapshot.docs) {
+      const chatData = docSnapshot.data() as ChatRoom;
+      if (chatData.participants.includes(user2Id)) {
+        return { ...chatData, id: docSnapshot.id };
+      }
+    }
+
+    return null;
+  } catch (error: unknown) {
+    console.error("既存チャットルーム検索エラー:", error);
+    return null;
+  }
+};
+
+/**
+ * チャットルームが存在する友達のIDリストを取得する
+ * （変更理由）：チャットタブの新規作成で既存チャットルームがある友達を除外するため
+ *
+ * @param userId - 現在のユーザーID
+ * @returns チャットルームが存在する友達のID配列
+ */
+export const getFriendsWithExistingChatRooms = async (
+  userId: string
+): Promise<string[]> => {
+  try {
+    // ユーザーが参加しているチャットルームを取得
+    const chatRooms = await getChatRooms(userId);
+
+    // 個別チャットルームの友達IDを抽出
+    const friendIds = new Set<string>();
+
+    chatRooms.forEach((room) => {
+      if (room.type === "direct") {
+        // 個別チャットの場合、相手のIDを取得
+        const otherParticipant = room.participants.find((id) => id !== userId);
+        if (otherParticipant) {
+          friendIds.add(otherParticipant);
+        }
+      }
+    });
+
+    return Array.from(friendIds);
+  } catch (error: unknown) {
+    console.error("チャットルーム存在友達取得エラー:", error);
+    throw new Error("チャットルームが存在する友達の取得に失敗しました");
+  }
+};

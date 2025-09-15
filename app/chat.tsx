@@ -19,6 +19,7 @@ import {
   sendMessage,
   subscribeToChatMessages,
 } from "@/lib/firebase/chat";
+import { getUserProfile } from "@/lib/firebase/firestore";
 import { ExtendedMessage } from "@/lib/firebase/models";
 import { uploadDocument, uploadImage } from "@/lib/firebase/storage";
 import { router, useLocalSearchParams } from "expo-router";
@@ -48,9 +49,10 @@ export default function ChatScreen() {
   // 認証状態の取得
   const { user, getChatRoomInfo } = useAuth();
 
-  // URLパラメータからチャットルームIDを取得
+  // URLパラメータからチャットルームIDまたはユーザーIDを取得
   const params = useLocalSearchParams();
-  const initialChatId = (params.chatId as string) || "general";
+  const initialChatId =
+    (params.chatId as string) || (params.userId as string) || "general";
 
   // ローカル状態の管理
   const [messages, setMessages] = useState<ExtendedMessage[]>([]); // メッセージリスト
@@ -59,6 +61,9 @@ export default function ChatScreen() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [chatId, setChatId] = useState(initialChatId); // チャットルームID（動的）
   const [chatTitle, setChatTitle] = useState(""); // チャットルームタイトル
+  const [senderProfiles, setSenderProfiles] = useState<Map<string, string>>(
+    new Map()
+  ); // 送信者の表示名マップ
 
   // FlatListの参照（スクロール制御用）
   const flatListRef = useRef<FlatList>(null);
@@ -78,6 +83,7 @@ export default function ChatScreen() {
    */
   /**
    * チャットルーム情報の取得
+   * （変更理由）：個別チャットルームの相手の名前を表示するように更新
    */
   useEffect(() => {
     const initializeChatRoom = async () => {
@@ -85,11 +91,29 @@ export default function ChatScreen() {
 
       try {
         setIsInitializing(true);
-        const roomInfo = await getChatRoomInfo(chatId);
-        if (roomInfo) {
-          setChatTitle(roomInfo.title);
+
+        // chatIdがuserIdの場合は、チャットルームを作成または取得
+        if (params.userId && !params.chatId) {
+          const { createOrGetDirectChatRoom, getUserProfile } = await import(
+            "@/lib/firebase/firestore"
+          );
+          const chatRoomId = await createOrGetDirectChatRoom(
+            user.uid,
+            params.userId as string
+          );
+          setChatId(chatRoomId);
+
+          // 相手の名前を取得
+          const friendProfile = await getUserProfile(params.userId as string);
+          setChatTitle(friendProfile?.displayName || "チャット");
         } else {
-          setChatTitle("チャット"); // フォールバック
+          // 既存のチャットルーム情報を取得
+          const roomInfo = await getChatRoomInfo(chatId);
+          if (roomInfo) {
+            setChatTitle(roomInfo.title);
+          } else {
+            setChatTitle("チャット"); // フォールバック
+          }
         }
       } catch (error) {
         console.error("Failed to initialize chat room:", error);
@@ -100,7 +124,7 @@ export default function ChatScreen() {
     };
 
     initializeChatRoom();
-  }, [chatId, user, getChatRoomInfo]);
+  }, [chatId, user, getChatRoomInfo, params.userId, params.chatId]);
 
   useEffect(() => {
     // （変更理由）：認証状態とローディング状態の両方を確認してからFirestoreクエリを実行
@@ -119,9 +143,30 @@ export default function ChatScreen() {
     );
 
     // Firestoreのリアルタイムリスナーを設定
-    const unsubscribe = subscribeToChatMessages(chatId, (newMessages) => {
+    const unsubscribe = subscribeToChatMessages(chatId, async (newMessages) => {
       console.log("ChatScreen: Received messages:", newMessages.length);
       setMessages(newMessages); // メッセージリストを更新
+
+      // （変更理由）：メッセージの送信者情報を取得して表示名マップを更新
+      const profilesMap = new Map<string, string>();
+
+      for (const message of newMessages) {
+        if (message.sender && !profilesMap.has(message.sender)) {
+          try {
+            // ユーザーIDの場合はプロフィールを取得
+            const profile = await getUserProfile(message.sender);
+            profilesMap.set(
+              message.sender,
+              profile?.displayName || message.sender
+            );
+          } catch (error) {
+            console.error("送信者情報の取得に失敗:", error);
+            profilesMap.set(message.sender, message.sender);
+          }
+        }
+      }
+
+      setSenderProfiles(profilesMap);
     });
 
     // クリーンアップ関数を返す
@@ -151,7 +196,7 @@ export default function ChatScreen() {
       await sendMessage(chatId, {
         chatId,
         text: text.trim(),
-        sender: user.email || "unknown",
+        sender: user.uid, // ユーザーIDを使用
         type: "text",
       });
 
@@ -178,7 +223,7 @@ export default function ChatScreen() {
       await sendMessage(chatId, {
         chatId,
         text: "画像を送信しました",
-        sender: user.email || "unknown",
+        sender: user.uid, // ユーザーIDを使用
         type: "image",
         metadata: {
           url: imageUrl,
@@ -209,7 +254,7 @@ export default function ChatScreen() {
       await sendMessage(chatId, {
         chatId,
         text: `ファイル: ${fileName}`,
-        sender: user.email || "unknown",
+        sender: user.uid, // ユーザーIDを使用
         type: "file",
         metadata: {
           url: fileUrl,
@@ -241,14 +286,26 @@ export default function ChatScreen() {
    * - システムメッセージ: 中央、薄いグレー背景
    */
   const renderMessage = ({ item }: { item: ExtendedMessage }) => {
-    const isOwnMessage = item.sender === user?.email; // 自分のメッセージかどうか
+    const isOwnMessage = item.sender === user?.uid; // 自分のメッセージかどうか（ユーザーIDで判定）
 
     // 自分のメッセージでない場合、表示時に既読にする
     if (!isOwnMessage && user && item.id) {
-      markMessageAsRead(chatId, item.id, user.email || "unknown");
+      markMessageAsRead(chatId, item.id, user.uid);
     }
 
-    return <ChatMessage message={item} isOwnMessage={isOwnMessage} />;
+    // （変更理由）：送信者の表示名を取得してメッセージに追加
+    const senderDisplayName = senderProfiles.get(item.sender) || item.sender;
+    const messageWithDisplayName = {
+      ...item,
+      senderDisplayName,
+    };
+
+    return (
+      <ChatMessage
+        message={messageWithDisplayName}
+        isOwnMessage={isOwnMessage}
+      />
+    );
   };
 
   /**

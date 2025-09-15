@@ -15,8 +15,13 @@
 import Avatar from "@/components/ui/Avatar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { signOutUser } from "@/lib/firebase/auth";
-import { getChatRooms } from "@/lib/firebase/firestore";
-import { ChatRoom } from "@/lib/firebase/models";
+import {
+  getChatRooms,
+  getFriends,
+  getFriendsWithExistingChatRooms,
+  getUserProfile,
+} from "@/lib/firebase/firestore";
+import { ChatRoom, UserProfile } from "@/lib/firebase/models";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -47,9 +52,16 @@ export default function ChatListScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [showFriendSelection, setShowFriendSelection] = useState(false);
+  const [availableFriends, setAvailableFriends] = useState<UserProfile[]>([]);
+  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
+  const [chatRoomParticipants, setChatRoomParticipants] = useState<
+    Map<string, UserProfile>
+  >(new Map());
 
   /**
    * チャットルーム一覧の取得
+   * （変更理由）：個別チャットルームの相手の名前を表示するために参加者情報も取得
    */
   const fetchChatRooms = async () => {
     if (!user) return;
@@ -58,6 +70,32 @@ export default function ChatListScreen() {
       setIsLoading(true);
       const rooms = await getChatRooms(user.uid);
       setChatRooms(rooms);
+
+      // 個別チャットルームの参加者情報を取得
+      const participantsMap = new Map<string, UserProfile>();
+
+      for (const room of rooms) {
+        if (room.type === "direct") {
+          // 個別チャットの場合、相手の情報を取得
+          const otherParticipantId = room.participants.find(
+            (id) => id !== user.uid
+          );
+          if (otherParticipantId) {
+            try {
+              const participantProfile = await getUserProfile(
+                otherParticipantId
+              );
+              if (participantProfile) {
+                participantsMap.set(room.id, participantProfile);
+              }
+            } catch (error) {
+              console.error("参加者情報の取得に失敗:", error);
+            }
+          }
+        }
+      }
+
+      setChatRoomParticipants(participantsMap);
     } catch (error) {
       console.error("チャットルームの取得に失敗:", error);
       Alert.alert("エラー", "チャットルームの取得に失敗しました");
@@ -68,9 +106,77 @@ export default function ChatListScreen() {
 
   /**
    * 新しい個別チャットルームの作成
+   * （変更理由）：友達選択画面を表示してチャットルーム作成機能を実装
    */
-  const createNewChat = () => {
-    router.push("/select-user");
+  const createNewChat = async () => {
+    if (!user) {
+      Alert.alert("エラー", "ログインが必要です");
+      return;
+    }
+
+    try {
+      setIsLoadingFriends(true);
+
+      // 友達リストと既存チャットルームがある友達を並行取得
+      const [friends, friendsWithChatRooms] = await Promise.all([
+        getFriends(user.uid),
+        getFriendsWithExistingChatRooms(user.uid),
+      ]);
+
+      // 既存チャットルームがない友達のみを抽出
+      const friendsWithChatRoomIds = new Set(friendsWithChatRooms);
+      const availableFriendsList = friends.filter(
+        (friend) => !friendsWithChatRoomIds.has(friend.id)
+      );
+
+      setAvailableFriends(availableFriendsList);
+      setShowFriendSelection(true);
+    } catch (error) {
+      console.error("友達リスト取得エラー:", error);
+      Alert.alert("エラー", "友達リストの取得に失敗しました");
+    } finally {
+      setIsLoadingFriends(false);
+    }
+  };
+
+  /**
+   * 友達選択をキャンセル
+   */
+  const cancelFriendSelection = () => {
+    setShowFriendSelection(false);
+    setAvailableFriends([]);
+  };
+
+  /**
+   * 選択した友達とのチャットを開始
+   */
+  const startChatWithFriend = async (friend: UserProfile) => {
+    if (!user) {
+      Alert.alert("エラー", "ログインが必要です");
+      return;
+    }
+
+    try {
+      setIsCreatingChat(true);
+
+      // 友達とのチャットルームを作成または取得
+      const { createOrGetDirectChatRoom } = await import(
+        "@/lib/firebase/firestore"
+      );
+      const chatRoomId = await createOrGetDirectChatRoom(user.uid, friend.id);
+
+      // 友達選択画面を閉じてチャット画面に遷移
+      setShowFriendSelection(false);
+      router.push(`/chat?chatId=${chatRoomId}`);
+    } catch (error) {
+      console.error("チャット開始エラー:", error);
+      Alert.alert(
+        "エラー",
+        error instanceof Error ? error.message : "チャットの開始に失敗しました"
+      );
+    } finally {
+      setIsCreatingChat(false);
+    }
   };
 
   /**
@@ -93,6 +199,7 @@ export default function ChatListScreen() {
 
   /**
    * チャットルームアイテムのレンダリング
+   * （変更理由）：個別チャットルームの相手の名前を正しく表示
    */
   const renderChatRoomItem = ({ item }: { item: ChatRoom }) => {
     const getChatTitle = () => {
@@ -100,8 +207,24 @@ export default function ChatListScreen() {
         return item.name;
       }
       // 個別チャットの場合、相手の名前を表示
-      // 現在は簡易的に「個別チャット」と表示
-      return "個別チャット";
+      const participant = chatRoomParticipants.get(item.id);
+      return participant ? participant.displayName : "個別チャット";
+    };
+
+    const getChatAvatar = () => {
+      if (item.type === "group") {
+        return {
+          name: item.name || "グループ",
+          backgroundColor: "#34C759",
+        };
+      }
+      // 個別チャットの場合、相手のアバターを表示
+      const participant = chatRoomParticipants.get(item.id);
+      return {
+        uri: participant?.avatar,
+        name: participant?.displayName || "個別チャット",
+        backgroundColor: "#007AFF",
+      };
     };
 
     const getLastMessageText = () => {
@@ -111,15 +234,18 @@ export default function ChatListScreen() {
       return "まだメッセージがありません";
     };
 
+    const avatarProps = getChatAvatar();
+
     return (
       <TouchableOpacity
         style={styles.chatRoomItem}
         onPress={() => navigateToChat(item.id)}
       >
         <Avatar
-          name={getChatTitle()}
+          uri={avatarProps.uri}
+          name={avatarProps.name}
           size={50}
-          backgroundColor={item.type === "group" ? "#34C759" : "#007AFF"}
+          backgroundColor={avatarProps.backgroundColor}
         />
         <View style={styles.chatRoomInfo}>
           <Text style={styles.chatRoomTitle}>{getChatTitle()}</Text>
@@ -218,6 +344,73 @@ export default function ChatListScreen() {
     </View>
   );
 
+  /**
+   * 友達選択画面のレンダリング
+   * （変更理由）：チャットタブの新規作成で友達選択機能を実装
+   */
+  const renderFriendSelection = () => (
+    <View style={styles.friendSelectionOverlay}>
+      <View style={styles.friendSelectionContainer}>
+        <View style={styles.friendSelectionHeader}>
+          <Text style={styles.friendSelectionTitle}>友達を選択</Text>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={cancelFriendSelection}
+          >
+            <Text style={styles.cancelButtonText}>キャンセル</Text>
+          </TouchableOpacity>
+        </View>
+
+        {isLoadingFriends ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.loadingText}>友達を読み込み中...</Text>
+          </View>
+        ) : availableFriends.length === 0 ? (
+          <View style={styles.emptyFriendsState}>
+            <Text style={styles.emptyFriendsText}>
+              チャットを開始できる友達がいません
+            </Text>
+            <Text style={styles.emptyFriendsSubtext}>
+              すべての友達と既にチャットルームが作成されています
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={availableFriends}
+            renderItem={({ item: friend }) => (
+              <TouchableOpacity
+                style={styles.friendSelectionItem}
+                onPress={() => startChatWithFriend(friend)}
+                disabled={isCreatingChat}
+              >
+                <Avatar
+                  uri={friend.avatar}
+                  name={friend.displayName}
+                  size={40}
+                  style={styles.friendSelectionAvatar}
+                />
+                <View style={styles.friendSelectionInfo}>
+                  <Text style={styles.friendSelectionName}>
+                    {friend.displayName}
+                  </Text>
+                  <Text style={styles.friendSelectionStatus}>
+                    {friend.isOnline ? "オンライン" : "オフライン"}
+                  </Text>
+                </View>
+                {isCreatingChat && (
+                  <ActivityIndicator size="small" color="#007AFF" />
+                )}
+              </TouchableOpacity>
+            )}
+            keyExtractor={(item) => item.id}
+            style={styles.friendSelectionList}
+          />
+        )}
+      </View>
+    </View>
+  );
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -246,6 +439,7 @@ export default function ChatListScreen() {
         ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
       />
+      {showFriendSelection && renderFriendSelection()}
     </SafeAreaView>
   );
 }
@@ -414,5 +608,99 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     letterSpacing: -0.2,
     maxWidth: 280,
+  },
+  // 友達選択画面のスタイル
+  friendSelectionOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  friendSelectionContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    margin: 20,
+    maxHeight: "80%",
+    width: "90%",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  friendSelectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e1e5e9",
+  },
+  friendSelectionTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1a1a1a",
+  },
+  cancelButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+  },
+  cancelButtonText: {
+    color: "#666",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  friendSelectionList: {
+    maxHeight: 400,
+  },
+  friendSelectionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  friendSelectionAvatar: {
+    marginRight: 12,
+  },
+  friendSelectionInfo: {
+    flex: 1,
+  },
+  friendSelectionName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    marginBottom: 4,
+  },
+  friendSelectionStatus: {
+    fontSize: 14,
+    color: "#666",
+  },
+  emptyFriendsState: {
+    padding: 40,
+    alignItems: "center",
+  },
+  emptyFriendsText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  emptyFriendsSubtext: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 20,
   },
 });
