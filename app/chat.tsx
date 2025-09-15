@@ -103,22 +103,33 @@ export default function ChatScreen() {
   }, [chatId, user, getChatRoomInfo]);
 
   useEffect(() => {
-    if (!user) return; // ユーザーが未認証の場合は何もしない
+    // （変更理由）：認証状態とローディング状態の両方を確認してからFirestoreクエリを実行
+    if (!user || isLoading) {
+      console.log(
+        "ChatScreen: Skipping message subscription - user not authenticated or still loading"
+      );
+      return; // ユーザーが未認証またはローディング中の場合は何もしない
+    }
 
-    console.log("Setting up message subscription for chatId:", chatId);
+    console.log(
+      "ChatScreen: Setting up message subscription for chatId:",
+      chatId,
+      "user:",
+      user.email
+    );
 
     // Firestoreのリアルタイムリスナーを設定
     const unsubscribe = subscribeToChatMessages(chatId, (newMessages) => {
-      console.log("Received messages:", newMessages.length);
+      console.log("ChatScreen: Received messages:", newMessages.length);
       setMessages(newMessages); // メッセージリストを更新
     });
 
     // クリーンアップ関数を返す
     return () => {
-      console.log("Cleaning up message subscription");
+      console.log("ChatScreen: Cleaning up message subscription");
       unsubscribe();
     };
-  }, [chatId, user]); // chatIdまたはuserが変更された時に再実行
+  }, [chatId, user, isLoading]); // chatId、user、またはisLoadingが変更された時に再実行
 
   /**
    * メッセージ送信処理

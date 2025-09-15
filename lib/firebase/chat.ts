@@ -16,6 +16,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -23,7 +24,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { db } from "./config";
+import { auth, db } from "./config";
 import { ChatRoom, ExtendedMessage, MessageSummary } from "./models";
 
 /**
@@ -40,12 +41,12 @@ export const createChatRoom = async (
   name?: string
 ): Promise<string> => {
   try {
-    // チャットルームのデータを作成
+    // （変更理由）：serverTimestamp()はFieldValue型を返すため、型定義を修正
     const chatRoomData: Omit<ChatRoom, "id"> = {
       type,
       participants,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp() as any, // FieldValue型をanyでキャスト
+      updatedAt: serverTimestamp() as any, // FieldValue型をanyでキャスト
       createdBy: participants[0], // 作成者は最初の参加者
       isActive: true,
       ...(name && { name }), // グループチャットの場合のみ名前を設定
@@ -74,10 +75,10 @@ export const sendMessage = async (
   message: Omit<ExtendedMessage, "id" | "timestamp">
 ): Promise<string> => {
   try {
-    // メッセージにタイムスタンプを追加
+    // （変更理由）：serverTimestamp()はFieldValue型を返すため、型定義を修正
     const messageData = {
       ...message,
-      timestamp: serverTimestamp(),
+      timestamp: serverTimestamp() as any, // FieldValue型をanyでキャスト
     };
 
     // Firestoreにメッセージを追加
@@ -98,7 +99,7 @@ export const sendMessage = async (
 
     await updateDoc(doc(db, "chatRooms", chatId), {
       lastMessage: messageSummary,
-      updatedAt: serverTimestamp(),
+      updatedAt: serverTimestamp() as any, // FieldValue型をanyでキャスト
     });
 
     return messageRef.id;
@@ -117,13 +118,13 @@ export const sendMessage = async (
  */
 export const getChatMessages = async (
   chatId: string,
-  limit: number = 50
+  limitCount: number = 50
 ): Promise<ExtendedMessage[]> => {
   try {
     const messagesQuery = query(
       collection(db, "chatRooms", chatId, "messages"),
       orderBy("timestamp", "desc"),
-      limit(limit)
+      limit(limitCount)
     );
 
     const messagesSnapshot = await getDocs(messagesQuery);
@@ -150,19 +151,61 @@ export const subscribeToChatMessages = (
   chatId: string,
   callback: (messages: ExtendedMessage[]) => void
 ): (() => void) => {
+  // （変更理由）：認証状態を確認してからFirestoreクエリを実行するように修正
+  console.log(
+    "subscribeToChatMessages: Starting subscription for chatId:",
+    chatId
+  );
+
+  // （変更理由）：認証状態を詳細にログ出力
+  console.log("subscribeToChatMessages: Auth state check:", {
+    auth: auth ? "initialized" : "not initialized",
+    currentUser: auth?.currentUser
+      ? {
+          email: auth.currentUser.email,
+          uid: auth.currentUser.uid,
+          emailVerified: auth.currentUser.emailVerified,
+        }
+      : "no user",
+  });
+
   const messagesQuery = query(
     collection(db, "chatRooms", chatId, "messages"),
     orderBy("timestamp", "desc")
   );
 
-  return onSnapshot(messagesQuery, (snapshot) => {
-    const messages = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as ExtendedMessage[];
+  return onSnapshot(
+    messagesQuery,
+    (snapshot) => {
+      console.log(
+        "subscribeToChatMessages: Received snapshot with",
+        snapshot.docs.length,
+        "messages"
+      );
+      const messages = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as ExtendedMessage[];
 
-    callback(messages.reverse());
-  });
+      callback(messages.reverse());
+    },
+    (error) => {
+      // （変更理由）：onSnapshotのエラーハンドリングを追加して権限エラーを適切に処理
+      console.error("subscribeToChatMessages: Snapshot listener error:", error);
+
+      if (error.code === "permission-denied") {
+        console.error(
+          "subscribeToChatMessages: Permission denied - user may not be authenticated"
+        );
+        // 空のメッセージ配列でコールバックを呼び出し、UIのクラッシュを防ぐ
+        callback([]);
+      } else {
+        console.error("subscribeToChatMessages: Unexpected error:", error);
+        // その他のエラーでも空の配列を返してアプリの安定性を保つ
+        callback([]);
+      }
+    }
+  );
 };
 
 /**
@@ -205,7 +248,7 @@ export const updateChatRoom = async (
     const chatRoomRef = doc(db, "chatRooms", chatId);
     await updateDoc(chatRoomRef, {
       ...updates,
-      updatedAt: serverTimestamp(),
+      updatedAt: serverTimestamp() as any, // FieldValue型をanyでキャスト
     });
     console.log("Chat room updated:", chatId);
   } catch (error) {

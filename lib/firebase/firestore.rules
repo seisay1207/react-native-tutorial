@@ -18,6 +18,13 @@ service cloud.firestore {
       // 更新・削除は参加者のみ可能
       allow update, delete: if request.auth != null && 
         request.auth.uid in resource.data.participants;
+      
+      // （変更理由）：チャットルームのサブコレクション（messages）に対する権限を追加
+      match /messages/{messageId} {
+        // 参加者のみがメッセージを読み書き可能
+        allow read, write: if request.auth != null && 
+          request.auth.uid in get(/databases/$(database)/documents/chatRooms/$(chatId)).data.participants;
+      }
     }
 
     // メッセージのルール

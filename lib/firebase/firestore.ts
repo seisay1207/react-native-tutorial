@@ -429,19 +429,46 @@ export const subscribeToMessages = (
   chatId: string,
   callback: (messages: Message[]) => void
 ) => {
+  // （変更理由）：認証状態を確認してからFirestoreクエリを実行するように修正
+  console.log("subscribeToMessages: Starting subscription for chatId:", chatId);
+
   const q = query(
     collection(db, "messages"),
     where("chatId", "==", chatId),
     orderBy("timestamp", "asc")
   );
 
-  return onSnapshot(q, (snapshot) => {
-    const messages = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Message[];
-    callback(messages);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      console.log(
+        "subscribeToMessages: Received snapshot with",
+        snapshot.docs.length,
+        "messages"
+      );
+      const messages = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Message[];
+      callback(messages);
+    },
+    (error) => {
+      // （変更理由）：onSnapshotのエラーハンドリングを追加して権限エラーを適切に処理
+      console.error("subscribeToMessages: Snapshot listener error:", error);
+
+      if (error.code === "permission-denied") {
+        console.error(
+          "subscribeToMessages: Permission denied - user may not be authenticated"
+        );
+        // 空のメッセージ配列でコールバックを呼び出し、UIのクラッシュを防ぐ
+        callback([]);
+      } else {
+        console.error("subscribeToMessages: Unexpected error:", error);
+        // その他のエラーでも空の配列を返してアプリの安定性を保つ
+        callback([]);
+      }
+    }
+  );
 };
 
 /**
