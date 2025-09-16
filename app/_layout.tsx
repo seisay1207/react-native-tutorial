@@ -10,8 +10,10 @@
  * 4. ローディング状態の適切な処理
  */
 
+import { useNotifications } from "@/hooks/useNotifications";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
 import { Stack } from "expo-router";
+import { useEffect } from "react";
 import Toast from "react-native-toast-message";
 
 /**
@@ -20,9 +22,17 @@ import Toast from "react-native-toast-message";
  * 【役割】
  * - 基本的なルーティング設定
  * - 全画面の基本レイアウト
+ * - 通知機能の初期化
  */
 function AppContent() {
   console.log("AppContent: Setting up main routing");
+
+  const { initialize } = useNotifications();
+
+  // （変更理由）：アプリ起動時に通知機能を初期化
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
 
   return (
     <Stack

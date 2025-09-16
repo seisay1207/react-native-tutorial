@@ -24,6 +24,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import { NotificationService } from "../services/NotificationService";
 import { auth, db } from "./config";
 import { ChatRoom, ExtendedMessage, MessageSummary } from "./models";
 
@@ -101,6 +102,9 @@ export const sendMessage = async (
       lastMessage: messageSummary,
       updatedAt: serverTimestamp() as any, // FieldValue型をanyでキャスト
     });
+
+    // （変更理由）：通知機能の統合 - メッセージ送信時に通知を送信
+    await sendMessageNotification(chatId, message.sender, message.text);
 
     return messageRef.id;
   } catch (error) {
@@ -289,5 +293,46 @@ export const markMessageAsRead = async (
   } catch (error) {
     console.error("Error marking message as read:", error);
     throw error;
+  }
+};
+
+/**
+ * メッセージ送信時の通知を送信
+ * （変更理由）：メッセージが送信された時に受信者に通知を送信
+ */
+const sendMessageNotification = async (
+  chatId: string,
+  senderId: string,
+  messageText: string
+): Promise<void> => {
+  try {
+    // チャットルームの情報を取得
+    const chatRoomDoc = await getDoc(doc(db, "chatRooms", chatId));
+    if (!chatRoomDoc.exists()) {
+      console.log("❌ Chat room not found:", chatId);
+      return;
+    }
+
+    const chatRoom = chatRoomDoc.data() as ChatRoom;
+
+    // 送信者以外の参加者に通知を送信
+    const recipients = chatRoom.participants.filter(
+      (participantId) => participantId !== senderId
+    );
+
+    const notificationService = NotificationService.getInstance();
+
+    // 各受信者に通知を送信
+    for (const recipientId of recipients) {
+      await notificationService.sendChatMessageNotification(
+        chatId,
+        senderId,
+        messageText,
+        recipientId
+      );
+    }
+  } catch (error) {
+    console.error("❌ Send message notification error:", error);
+    // 通知の送信に失敗してもメッセージ送信は成功とする
   }
 };

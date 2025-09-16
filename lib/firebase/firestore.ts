@@ -31,6 +31,7 @@ import {
 import { db } from "./config";
 
 // 新しいデータモデルをインポート
+import { NotificationService } from "../services/NotificationService";
 import { ChatRoom, FriendRequest, Friendship, UserProfile } from "./models";
 
 /**
@@ -59,6 +60,14 @@ export const sendFriendRequest = async (
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+
+    // （変更理由）：通知機能の統合 - 友達リクエスト送信時に通知を送信
+    const notificationService = NotificationService.getInstance();
+    await notificationService.sendFriendRequestNotification(
+      fromUserId,
+      toUserId,
+      message
+    );
 
     return docRef.id;
   } catch (error: unknown) {
@@ -127,6 +136,13 @@ export const acceptFriendRequest = async (requestId: string): Promise<void> => {
         acceptedAt: serverTimestamp(),
       });
     });
+
+    // （変更理由）：通知機能の統合 - 友達リクエスト承認時に通知を送信
+    const notificationService = NotificationService.getInstance();
+    await notificationService.sendFriendAcceptedNotification(
+      request.fromUser,
+      request.toUser
+    );
   } catch (error: unknown) {
     console.error("Friend request accept error:", error);
     throw error instanceof Error

@@ -63,6 +63,15 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: "通知",
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="notifications" color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
@@ -71,7 +80,13 @@ export default function TabLayout() {
 function TabBarIcon({ name, color }: { name: string; color: string }) {
   return (
     <Text style={{ color, fontSize: 20 }}>
-      {name === "chatbubble" ? "💬" : name === "people" ? "👥" : "📱"}
+      {name === "chatbubble"
+        ? "💬"
+        : name === "people"
+        ? "👥"
+        : name === "notifications"
+        ? "🔔"
+        : "📱"}
     </Text>
   );
 }
