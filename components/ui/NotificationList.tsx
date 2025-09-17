@@ -28,8 +28,6 @@ import {
   NotificationData,
   useNotifications,
 } from "../../hooks/useNotifications";
-import { ThemedText } from "../ThemedText";
-import { ThemedView } from "../ThemedView";
 
 /**
  * 通知一覧コンポーネントのProps
@@ -115,19 +113,15 @@ const NotificationItem: React.FC<{
             {getNotificationIcon(notification.type)}
           </Text>
           <View style={styles.notificationInfo}>
-            <ThemedText style={styles.notificationTitle}>
-              {notification.title}
-            </ThemedText>
-            <ThemedText style={styles.notificationTime}>
+            <Text style={styles.notificationTitle}>{notification.title}</Text>
+            <Text style={styles.notificationTime}>
               {formatNotificationTime(notification.createdAt)}
-            </ThemedText>
+            </Text>
           </View>
           {!notification.isRead && <View style={styles.unreadIndicator} />}
         </View>
 
-        <ThemedText style={styles.notificationBody}>
-          {notification.body}
-        </ThemedText>
+        <Text style={styles.notificationBody}>{notification.body}</Text>
       </View>
 
       <View style={styles.notificationActions}>
@@ -230,10 +224,10 @@ export const NotificationListComponent: React.FC<NotificationListProps> = ({
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyIcon}>🔔</Text>
-      <ThemedText style={styles.emptyTitle}>通知はありません</ThemedText>
-      <ThemedText style={styles.emptyDescription}>
+      <Text style={styles.emptyTitle}>通知はありません</Text>
+      <Text style={styles.emptyDescription}>
         新しいメッセージや友達リクエストがあると、ここに表示されます。
-      </ThemedText>
+      </Text>
     </View>
   );
 
@@ -243,13 +237,11 @@ export const NotificationListComponent: React.FC<NotificationListProps> = ({
    */
   if (error) {
     return (
-      <ThemedView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
-          <ThemedText style={styles.errorTitle}>
-            エラーが発生しました
-          </ThemedText>
-          <ThemedText style={styles.errorDescription}>{error}</ThemedText>
+          <Text style={styles.errorTitle}>エラーが発生しました</Text>
+          <Text style={styles.errorDescription}>{error}</Text>
           <TouchableOpacity
             style={styles.retryButton}
             onPress={refreshNotifications}
@@ -257,17 +249,17 @@ export const NotificationListComponent: React.FC<NotificationListProps> = ({
             <Text style={styles.retryButtonText}>再試行</Text>
           </TouchableOpacity>
         </View>
-      </ThemedView>
+      </View>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
       {/* ヘッダー */}
       <View style={styles.header}>
-        <ThemedText style={styles.headerTitle}>
+        <Text style={styles.headerTitle}>
           通知 {unreadCount > 0 && `(${unreadCount})`}
-        </ThemedText>
+        </Text>
         {unreadCount > 0 && (
           <TouchableOpacity
             style={styles.markAllButton}
@@ -294,7 +286,7 @@ export const NotificationListComponent: React.FC<NotificationListProps> = ({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
       />
-    </ThemedView>
+    </View>
   );
 };
 

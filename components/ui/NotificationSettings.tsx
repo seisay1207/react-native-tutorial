@@ -26,8 +26,6 @@ import {
   NotificationSettings,
   useNotifications,
 } from "../../hooks/useNotifications";
-import { ThemedText } from "../ThemedText";
-import { ThemedView } from "../ThemedView";
 
 /**
  * 通知設定コンポーネントのProps
@@ -92,14 +90,12 @@ export const NotificationSettingsComponent: React.FC<
    */
   if (!permissionStatus?.granted) {
     return (
-      <ThemedView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.permissionContainer}>
-          <ThemedText style={styles.permissionTitle}>
-            通知権限が必要です
-          </ThemedText>
-          <ThemedText style={styles.permissionDescription}>
+          <Text style={styles.permissionTitle}>通知権限が必要です</Text>
+          <Text style={styles.permissionDescription}>
             チャットメッセージや友達リクエストの通知を受け取るには、通知権限を許可してください。
-          </ThemedText>
+          </Text>
           <TouchableOpacity
             style={[
               styles.permissionButton,
@@ -113,18 +109,18 @@ export const NotificationSettingsComponent: React.FC<
             </Text>
           </TouchableOpacity>
         </View>
-      </ThemedView>
+      </View>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <ThemedText style={styles.title}>通知設定</ThemedText>
+          <Text style={styles.title}>通知設定</Text>
           {onClose && (
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Text style={styles.closeButtonText}>閉じる</Text>
@@ -142,10 +138,10 @@ export const NotificationSettingsComponent: React.FC<
           {/* プッシュ通知の設定 */}
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <ThemedText style={styles.settingTitle}>プッシュ通知</ThemedText>
-              <ThemedText style={styles.settingDescription}>
+              <Text style={styles.settingTitle}>プッシュ通知</Text>
+              <Text style={styles.settingDescription}>
                 アプリからの通知を有効/無効にします
-              </ThemedText>
+              </Text>
             </View>
             <Switch
               value={settings?.pushNotifications ?? true}
@@ -168,12 +164,10 @@ export const NotificationSettingsComponent: React.FC<
           {/* メッセージ通知の設定 */}
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <ThemedText style={styles.settingTitle}>
-                メッセージ通知
-              </ThemedText>
-              <ThemedText style={styles.settingDescription}>
+              <Text style={styles.settingTitle}>メッセージ通知</Text>
+              <Text style={styles.settingDescription}>
                 新しいメッセージが届いた時の通知
-              </ThemedText>
+              </Text>
             </View>
             <Switch
               value={settings?.messageNotifications ?? true}
@@ -196,12 +190,10 @@ export const NotificationSettingsComponent: React.FC<
           {/* 友達リクエスト通知の設定 */}
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <ThemedText style={styles.settingTitle}>
-                友達リクエスト通知
-              </ThemedText>
-              <ThemedText style={styles.settingDescription}>
+              <Text style={styles.settingTitle}>友達リクエスト通知</Text>
+              <Text style={styles.settingDescription}>
                 友達リクエストが届いた時の通知
-              </ThemedText>
+              </Text>
             </View>
             <Switch
               value={settings?.friendRequestNotifications ?? true}
@@ -224,15 +216,15 @@ export const NotificationSettingsComponent: React.FC<
 
         {/* 説明テキスト */}
         <View style={styles.infoContainer}>
-          <ThemedText style={styles.infoText}>
+          <Text style={styles.infoText}>
             • 通知設定は端末の設定アプリからも変更できます
-          </ThemedText>
-          <ThemedText style={styles.infoText}>
+          </Text>
+          <Text style={styles.infoText}>
             • プッシュ通知を無効にすると、他の通知設定も無効になります
-          </ThemedText>
+          </Text>
         </View>
       </ScrollView>
-    </ThemedView>
+    </View>
   );
 };
 

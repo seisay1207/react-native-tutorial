@@ -13,6 +13,9 @@
  */
 
 import Avatar from "@/components/ui/Avatar";
+import { NotificationListComponent } from "@/components/ui/NotificationList";
+import { NotificationSettingsComponent } from "@/components/ui/NotificationSettings";
+import { useNotifications } from "@/hooks/useNotifications";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { signOutUser } from "@/lib/firebase/auth";
 import {
@@ -22,12 +25,14 @@ import {
   getUserProfile,
 } from "@/lib/firebase/firestore";
 import { ChatRoom, UserProfile } from "@/lib/firebase/models";
+import { NotificationData } from "@/lib/services/NotificationService";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -47,6 +52,9 @@ export default function ChatListScreen() {
   // 認証状態の取得
   const { user } = useAuth();
 
+  // 通知機能の取得
+  const { unreadCount } = useNotifications();
+
   // ローカル状態の管理
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,11 +67,16 @@ export default function ChatListScreen() {
     Map<string, UserProfile>
   >(new Map());
 
+  // 通知モーダルの状態管理
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] =
+    useState(false);
+
   /**
    * チャットルーム一覧の取得
    * （変更理由）：個別チャットルームの相手の名前を表示するために参加者情報も取得
    */
-  const fetchChatRooms = async () => {
+  const fetchChatRooms = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -102,7 +115,7 @@ export default function ChatListScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   /**
    * 新しい個別チャットルームの作成
@@ -191,11 +204,57 @@ export default function ChatListScreen() {
   };
 
   /**
+   * 通知ボタンのタップ処理
+   * （変更理由）：通知モーダルを表示
+   */
+  const handleNotificationPress = () => {
+    setShowNotificationModal(true);
+  };
+
+  /**
+   * 通知タップ時の処理
+   * （変更理由）：通知をタップした時に適切な画面に遷移
+   */
+  const handleNotificationItemPress = (notification: NotificationData) => {
+    try {
+      const data = notification.data;
+
+      if (data?.type === "chat") {
+        // チャット通知の場合、チャット画面に遷移
+        setShowNotificationModal(false);
+        router.push({
+          pathname: "/chat",
+          params: { chatId: data.chatId },
+        });
+      } else if (data?.type === "friend_request") {
+        // 友達リクエスト通知の場合、友達画面に遷移
+        setShowNotificationModal(false);
+        router.push("/(tabs)/friends");
+      } else if (data?.type === "friend_accepted") {
+        // 友達承認通知の場合、友達画面に遷移
+        setShowNotificationModal(false);
+        router.push("/(tabs)/friends");
+      }
+    } catch (error) {
+      console.error("❌ Handle notification press error:", error);
+      Alert.alert("エラー", "画面の遷移に失敗しました。");
+    }
+  };
+
+  /**
+   * 通知設定ボタンのタップ処理
+   * （変更理由）：通知設定画面を表示
+   */
+  const handleNotificationSettingsPress = () => {
+    setShowNotificationSettings(true);
+  };
+
+  /**
    * チャットルーム一覧の初期化
    */
   useEffect(() => {
     fetchChatRooms();
-  }, [user]);
+  }, [user, fetchChatRooms]);
 
   /**
    * チャットルームアイテムのレンダリング
@@ -279,6 +338,21 @@ export default function ChatListScreen() {
     <View style={styles.header}>
       <Text style={styles.title}>チャット</Text>
       <View style={styles.headerButtons}>
+        {/* 通知ボタン */}
+        <TouchableOpacity
+          style={styles.notificationButton}
+          onPress={handleNotificationPress}
+        >
+          <Text style={styles.notificationIcon}>🔔</Text>
+          {unreadCount > 0 && (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[
             styles.createButton,
@@ -342,6 +416,68 @@ export default function ChatListScreen() {
         「新規作成」ボタンを押して、新しいチャットを始めましょう
       </Text>
     </View>
+  );
+
+  /**
+   * 通知モーダルのレンダリング
+   * （変更理由）：通知一覧をモーダルで表示
+   */
+  const renderNotificationModal = () => (
+    <Modal
+      visible={showNotificationModal}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={() => setShowNotificationModal(false)}
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>通知</Text>
+          <View style={styles.modalHeaderButtons}>
+            <TouchableOpacity
+              style={styles.modalSettingsButton}
+              onPress={handleNotificationSettingsPress}
+            >
+              <Text style={styles.modalSettingsButtonText}>設定</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowNotificationModal(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>閉じる</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <NotificationListComponent
+          onNotificationPress={handleNotificationItemPress}
+        />
+      </SafeAreaView>
+    </Modal>
+  );
+
+  /**
+   * 通知設定モーダルのレンダリング
+   * （変更理由）：通知設定をモーダルで表示
+   */
+  const renderNotificationSettingsModal = () => (
+    <Modal
+      visible={showNotificationSettings}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={() => setShowNotificationSettings(false)}
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>通知設定</Text>
+          <TouchableOpacity
+            style={styles.modalCloseButton}
+            onPress={() => setShowNotificationSettings(false)}
+          >
+            <Text style={styles.modalCloseButtonText}>閉じる</Text>
+          </TouchableOpacity>
+        </View>
+        <NotificationSettingsComponent />
+      </SafeAreaView>
+    </Modal>
   );
 
   /**
@@ -440,6 +576,8 @@ export default function ChatListScreen() {
         showsVerticalScrollIndicator={false}
       />
       {showFriendSelection && renderFriendSelection()}
+      {renderNotificationModal()}
+      {renderNotificationSettingsModal()}
     </SafeAreaView>
   );
 }
@@ -463,6 +601,39 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+  },
+  notificationButton: {
+    position: "relative",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 44,
+    minHeight: 44,
+  },
+  notificationIcon: {
+    fontSize: 18,
+    color: "#666",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#f44336",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  notificationBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "600",
   },
   title: {
     fontSize: 28,
@@ -702,5 +873,55 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     lineHeight: 20,
+  },
+  // モーダルのスタイル
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e1e5e9",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1a1a1a",
+  },
+  modalHeaderButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  modalSettingsButton: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 70,
+    alignItems: "center",
+  },
+  modalSettingsButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  modalCloseButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+    minWidth: 70,
+    alignItems: "center",
+  },
+  modalCloseButtonText: {
+    color: "#666",
+    fontSize: 16,
+    fontWeight: "500",
   },
 });
