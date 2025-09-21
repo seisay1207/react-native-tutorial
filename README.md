@@ -1,48 +1,85 @@
-# React Native + Firebase 入門チャットアプリ開発
+# React Native + Firebase チャットアプリ
+
+## 概要
+
+このアプリは、React Native + Expo + Firebase を使用して開発されたリアルタイムチャットアプリケーションです。認証、リアルタイムメッセージング、プッシュ通知、友達機能などの機能を提供します。
+
+## 主な機能
+
+- 🔐 **ユーザー認証**: Firebase Authentication による安全なログイン・サインアップ
+- 💬 **リアルタイムチャット**: Firestore を使用したリアルタイムメッセージング
+- 👥 **友達機能**: 友達リクエストの送受信、友達リスト管理
+- 🔔 **プッシュ通知**: Firebase Cloud Messaging による通知機能
+- 📱 **クロスプラットフォーム**: iOS、Android、Web 対応
+- 🎨 **モダン UI**: 直感的で美しいユーザーインターフェース
+
+## 技術スタック
+
+- **フロントエンド**: React Native 0.79.5 + Expo SDK 54
+- **バックエンド**: Firebase (Authentication, Firestore, Cloud Messaging)
+- **言語**: TypeScript
+- **状態管理**: React Context + Hooks
+- **ナビゲーション**: Expo Router
+- **UI**: カスタムコンポーネント + Expo Vector Icons
 
 ## 開発環境
 
 ### 必要なツール
 
-- Node.js
+- Node.js (推奨: 18.x 以上)
+- npm または yarn
 - Expo CLI
-- Firebase Console
+- Firebase Console アカウント
 
-### Firebase 設定
+### セットアップ
 
-このアプリを動作させるには、Firebase プロジェクトの設定が必要です。
+1. **リポジトリのクローン**
 
-#### 1. Firebase プロジェクトの作成
+   ```bash
+   git clone <repository-url>
+   cd official_toutrial
+   ```
 
-1. [Firebase Console](https://console.firebase.google.com/)にアクセス
-2. 新しいプロジェクトを作成
-3. Authentication を有効化（Email/Password 認証を有効にする）
-4. Firestore Database を有効化
+2. **依存関係のインストール**
 
-#### 2. 環境変数の設定
+   ```bash
+   npm install
+   ```
 
-プロジェクトルートに`.env`ファイルを作成し、以下の内容を追加してください：
+3. **Firebase 設定**
 
-```env
-EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key_here
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
-EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id
-```
+   - [Firebase Console](https://console.firebase.google.com/)でプロジェクトを作成
+   - Authentication（Email/Password）を有効化
+   - Firestore Database を有効化
+   - Cloud Messaging を有効化
 
-これらの値は、Firebase Console の「プロジェクト設定」→「全般」→「マイアプリ」で確認できます。
+4. **環境変数の設定**
 
-#### 3. 設定値の取得方法
+   プロジェクトルートに`.env`ファイルを作成：
 
-1. Firebase Console でプロジェクトを選択
-2. 左側メニューから「プロジェクト設定」をクリック
-3. 「全般」タブで「マイアプリ」セクションを確認
-4. Web アプリの設定から必要な値をコピー
+   ```env
+   EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key_here
+   EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+   EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+   EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+   EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+   EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
+   EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id
+   ```
 
-#### 4. Firestore セキュリティルールの設定
+5. **アプリの起動**
+
+   ```bash
+   # 開発サーバー起動
+   npm start
+
+   # プラットフォーム別起動
+   npm run ios      # iOS シミュレーター
+   npm run android  # Android エミュレーター
+   npm run web      # Web ブラウザ
+   ```
+
+### Firestore セキュリティルール
 
 Firebase Console で Firestore Database の「ルール」タブを開き、以下のルールを設定してください：
 
@@ -50,30 +87,34 @@ Firebase Console で Firestore Database の「ルール」タブを開き、以�
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // メッセージのルール
-    match /messages/{messageId} {
-      allow read, write: if request.auth != null;
+    // ユーザー情報
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // チャットのルール
+    // 友達リクエスト
+    match /friendRequests/{requestId} {
+      allow read, write: if request.auth != null &&
+        (request.auth.uid == resource.data.fromUserId ||
+         request.auth.uid == resource.data.toUserId);
+    }
+
+    // チャットルーム
     match /chats/{chatId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if request.auth != null &&
+        request.auth.uid in resource.data.participants;
+    }
+
+    // メッセージ
+    match /messages/{messageId} {
+      allow read, write: if request.auth != null &&
+        request.auth.uid in get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data.participants;
     }
   }
 }
 ```
 
 **注意**: より詳細なセキュリティルールは `lib/firebase/firestore.rules` ファイルに定義されています。
-
-### セットアップ
-
-```bash
-# 依存関係のインストール
-npm install
-
-# アプリの起動
-npx expo start
-```
 
 ### トラブルシューティング
 
@@ -100,129 +141,207 @@ npx expo start
 ## プロジェクト構成
 
 ```
-app/
-├── auth/           # 認証関連画面
-├── firebase/       # Firebase設定・認証機能
-├── contexts/       # React Context
-└── (tabs)/         # メイン画面
+app/                          # Expo Router による画面構成
+├── (auth)/                   # 認証関連画面
+│   ├── _layout.tsx          # 認証レイアウト
+│   ├── index.tsx            # ログイン画面
+│   └── signup.tsx           # サインアップ画面
+├── (tabs)/                   # メインタブ画面
+│   ├── _layout.tsx          # タブレイアウト
+│   ├── index.tsx            # ホーム画面
+│   └── friends.tsx          # 友達画面
+├── chat.tsx                  # チャット画面
+├── select-user.tsx          # ユーザー選択画面
+└── _layout.tsx              # ルートレイアウト
 
-lib/
-├── firebase/
-│   ├── config.ts           # Firebase設定
-│   ├── auth.ts             # 認証機能
-│   ├── firestore.ts        # Firestore機能（拡張済み）
-│   ├── models.ts           # データモデル定義（新規追加）
-│   └── firestore.rules     # セキュリティルール（新規追加）
-└── contexts/
-    └── AuthContext.tsx     # 認証状態管理
+components/                   # 再利用可能なUIコンポーネント
+├── ui/                      # UIコンポーネント
+│   ├── Avatar.tsx           # アバターコンポーネント
+│   ├── Button.tsx           # ボタンコンポーネント
+│   ├── ChatInput.tsx        # チャット入力コンポーネント
+│   ├── ChatMessage.tsx      # メッセージ表示コンポーネント
+│   ├── FriendRequestNotification.tsx  # 友達リクエスト通知
+│   ├── NotificationList.tsx # 通知一覧
+│   ├── NotificationSettings.tsx       # 通知設定
+│   └── TabBarBackground.tsx # タブバー背景
+├── ThemedText.tsx           # テーマ対応テキスト
+└── ThemedView.tsx           # テーマ対応ビュー
+
+lib/                         # ライブラリ・ユーティリティ
+├── contexts/
+│   └── AuthContext.tsx      # 認証状態管理
+├── firebase/                # Firebase関連
+│   ├── config.ts            # Firebase設定
+│   ├── auth.ts              # 認証機能
+│   ├── firestore.ts         # Firestore機能
+│   ├── messaging.ts         # プッシュ通知
+│   ├── models.ts            # データモデル定義
+│   ├── storage.ts           # ファイルストレージ
+│   └── firestore.rules      # セキュリティルール
+├── services/
+│   └── NotificationService.ts # 通知サービス
+└── utils/
+    └── notificationTestData.ts # 通知テストデータ
+
+hooks/                       # カスタムフック
+├── useColorScheme.ts        # カラースキーム管理
+├── useFriends.ts            # 友達機能
+├── useNotifications.ts      # 通知管理
+└── useThemeColor.ts         # テーマカラー管理
 ```
 
-## 機能
+## 機能詳細
 
-### 認証機能
+### 🔐 認証機能
 
-- ユーザー認証（ログイン・サインアップ・ログアウト）
-- Firebase Authentication 連携
-- エラーハンドリング
-- デバッグログ機能
+- **ユーザー登録・ログイン**: Email/Password による認証
+- **セッション管理**: 自動ログイン・ログアウト
+- **エラーハンドリング**: 分かりやすいエラーメッセージ表示
+- **状態管理**: React Context による認証状態の一元管理
 
-### チャット機能
+### 💬 チャット機能
 
-- リアルタイムメッセージ送受信
-- Firestore Database 連携
-- メッセージの表示（自分のメッセージと他の人のメッセージを区別）
-- タイムスタンプ表示
-- サンプルメッセージ追加機能
-- キーボード対応（iOS/Android）
-- 自動スクロール機能
+- **リアルタイムメッセージング**: Firestore による即座のメッセージ同期
+- **メッセージ表示**: 送信者別のメッセージバブル表示
+- **タイムスタンプ**: メッセージ送信時刻の表示
+- **キーボード対応**: iOS/Android のキーボード表示に最適化
+- **自動スクロール**: 新しいメッセージへの自動スクロール
 
-### 拡張されたデータモデル（新規追加）
+### 👥 友達機能
 
-#### ユーザー管理
+- **友達リクエスト**: 他のユーザーへの友達リクエスト送信
+- **リクエスト管理**: 受信したリクエストの承認・拒否
+- **友達リスト**: 承認済み友達の一覧表示
+- **ユーザー検索**: 表示名による友達検索
 
-- **ユーザープロフィール**: 表示名、アバター、オンライン状態
-- **友達機能**: リクエスト送受信、承認・拒否、友達リスト
-- **ユーザー検索**: 表示名による検索機能
+### 🔔 通知機能
 
-#### チャットルーム管理
+- **プッシュ通知**: Firebase Cloud Messaging による通知
+- **通知権限管理**: ユーザーの通知設定に基づく制御
+- **通知一覧**: 受信した通知の履歴表示
+- **通知設定**: 通知のオン/オフ切り替え
 
-- **個別チャット**: 1 対 1 チャットの動的作成
-- **グループチャット**: 複数ユーザー参加のチャット
-- **最新メッセージ**: チャットルーム一覧での最新メッセージ表示
+### 🎨 UI/UX
 
-#### 設定管理
-
-- **通知設定**: プッシュ通知、メール通知のカスタマイズ
-- **アプリ設定**: テーマ、言語、UI 設定の管理
-
-### UI/UX
-
-- モダンなチャット UI
-- メッセージバブル（自分のメッセージは右、他の人のメッセージは左）
-- システムメッセージ（中央表示）
-- レスポンシブデザイン
-- ローディング状態の表示
+- **モダンデザイン**: 直感的で美しいインターフェース
+- **レスポンシブ**: 様々な画面サイズに対応
+- **テーマ対応**: ライト/ダークモード切り替え
+- **アニメーション**: スムーズな画面遷移とインタラクション
 
 ## 使用方法
 
-1. **ログイン/サインアップ**: アプリを起動してアカウントを作成またはログイン
-2. **チャット画面**: メイン画面でメッセージを送信
-3. **サンプルメッセージ**: 「サンプル」ボタンを押してサンプルメッセージを追加
-4. **リアルタイム更新**: 他のユーザーが送信したメッセージがリアルタイムで表示
+### 初回セットアップ
 
-## 技術スタック
+1. **アプリ起動**: `npm start` で開発サーバーを起動
+2. **アカウント作成**: サインアップ画面でメールアドレスとパスワードを入力
+3. **ログイン**: 作成したアカウントでログイン
 
-- **React Native**: モバイルアプリ開発フレームワーク
-- **Expo**: 開発プラットフォーム
-- **Firebase Authentication**: ユーザー認証
-- **Firestore Database**: リアルタイムデータベース
-- **TypeScript**: 型安全な開発
-- **React Context**: グローバル状態管理
+### 基本的な使い方
+
+1. **チャット**: ホーム画面でメッセージを送受信
+2. **友達追加**: 友達画面でユーザーを検索してリクエスト送信
+3. **通知確認**: 通知タブで受信した通知を確認
+4. **設定変更**: 通知設定でプッシュ通知をカスタマイズ
 
 ## 開発状況
 
-### 完了済み機能
+### ✅ 完了済み機能
 
-- ✅ 基本的な認証機能
-- ✅ 基本的なチャット機能（固定チャットルーム）
-- ✅ リアルタイムメッセージ更新
-- ✅ 基本的な UI/UX
+#### 認証・ユーザー管理
 
-### 実装済み（基盤）
+- ユーザー登録・ログイン・ログアウト
+- Firebase Authentication 連携
+- 認証状態の管理
+- エラーハンドリング
 
-- ✅ 拡張されたデータモデル
-- ✅ 友達機能のバックエンド
-- ✅ 個別チャットルーム管理
-- ✅ セキュリティルール
+#### チャット機能
 
-### 通知機能（新規追加）
+- リアルタイムメッセージ送受信
+- メッセージ表示（送信者別バブル）
+- タイムスタンプ表示
+- キーボード対応
+- 自動スクロール
 
-- ✅ Firebase Cloud Messaging (FCM) の設定
-- ✅ プッシュ通知の受信と処理
-- ✅ 通知権限の管理
-- ✅ チャットメッセージの通知
-- ✅ 友達リクエストの通知
-- ✅ 通知設定画面
-- ✅ 通知一覧画面
-- ✅ 通知の既読/未読管理
+#### 友達機能
 
-#### 通知機能の使用方法
+- 友達リクエストの送受信
+- リクエストの承認・拒否
+- 友達リスト管理
+- ユーザー検索
 
-1. **通知権限の許可**: アプリ初回起動時に通知権限を許可
-2. **通知設定**: 通知タブの「設定」ボタンから通知設定を変更
-3. **通知の確認**: 通知タブで受信した通知を確認
-4. **通知の管理**: 通知を既読にしたり削除したり可能
+#### 通知機能
 
-#### 通知機能の技術詳細
+- Firebase Cloud Messaging 設定
+- プッシュ通知の受信・処理
+- 通知権限管理
+- 通知一覧・設定画面
+- 既読/未読管理
 
-- **Firebase Cloud Messaging**: プッシュ通知の送受信
-- **Expo Notifications**: ローカル通知の管理
-- **通知サービス**: 通知の一元管理
-- **通知フック**: React Hooks による状態管理
+#### UI/UX
 
-### 次のステップ
+- モダンなチャットインターフェース
+- レスポンシブデザイン
+- テーマ対応（ライト/ダークモード）
+- スムーズなアニメーション
 
-- 🔄 個別チャット対応の UI 実装
-- 🔄 友達機能の UI 実装
-- 🔄 チャットルーム選択画面
-- 🔄 ユーザー検索・友達追加画面
+### 🔄 開発中・計画中
+
+#### 個別チャット機能
+
+- 1 対 1 チャットルームの動的作成
+- チャットルーム選択画面
+- グループチャット機能
+
+#### 高度な機能
+
+- 画像・ファイル送信
+- メッセージの編集・削除
+- オンライン状態表示
+- メッセージ検索
+
+#### パフォーマンス最適化
+
+- メッセージのページネーション
+- 画像の最適化
+- オフライン対応
+
+## デプロイ
+
+### 開発環境での実行
+
+```bash
+# 依存関係のインストール
+npm install
+
+# 開発サーバー起動
+npm start
+
+# プラットフォーム別実行
+npm run ios      # iOS シミュレーター
+npm run android  # Android エミュレーター
+npm run web      # Web ブラウザ
+```
+
+### 本番環境へのデプロイ
+
+詳細なデプロイ手順については、[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) を参照してください。
+
+#### 主要なデプロイ方法
+
+- **Expo EAS Build**: モバイルアプリのビルド・配布
+- **Web デプロイ**: Vercel、Netlify、Firebase Hosting
+- **アプリストア**: App Store、Google Play Store
+
+## ライセンス
+
+このプロジェクトは MIT ライセンスの下で公開されています。
+
+## 貢献
+
+プルリクエストやイシューの報告を歓迎します。詳細については、[CONTRIBUTING.md](./CONTRIBUTING.md) を参照してください。
+
+## サポート
+
+- **ドキュメント**: [Expo Documentation](https://docs.expo.dev/)
+- **Firebase**: [Firebase Documentation](https://firebase.google.com/docs)
+- **React Native**: [React Native Documentation](https://reactnative.dev/docs/getting-started)
